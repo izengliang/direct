@@ -1,4 +1,26 @@
 /**
+ * value information
+ *
+ * @typedef ValueInfo
+ * @property { Element } [host]
+ * @property { Element } [node]
+ * @property { Comment } [marker] - When the position of value is the child of the host.
+ * @property { number } position - value index from values.
+ * @property { string } [propertyName]
+ * @property { string } [eventName]
+ * @property { string } [attributeName]
+ * @property { Directive } [directive]
+ * @property { ValueType } type
+ *
+ */
+
+/**
+ * @typedef {{ Class: typeof Directive , isDirectiveResult: true, values: any[] }} DirectiveResult
+ */
+
+export const nothing = Symbol();
+
+/**
  *
  * @param {Element} dom
  * @returns {Comment[]}
@@ -33,20 +55,6 @@ export const ValueType = {
 };
 
 Object.freeze(ValueType);
-
-/**
- * value information
- *
- * @typedef ValueInfo
- * @property { Element } [host]
- * @property { Comment } [marker] - When the position of value is the child of the host.
- * @property { number } position - value index from values.
- * @property { string } [propertyName]
- * @property { string } [eventName]
- * @property { string } [attributeName]
- * @property { ValueType } type
- *
- */
 
 export class Template {
   /**
@@ -224,14 +232,44 @@ class TemplateResult {
           break;
 
         default:
-          // TODO
-          if (info.host) {
-            if (value instanceof Directive) {
+          if (info.directive) {
+            const result = info.directive.render(value.values);
+            if (result !== nothing) {
+              if (result instanceof TemplateResult) {
+                //render TemplateResult
+              } else {
+                if (info.marker && result !== info.node) {
+                  let newNode;
+                  if (!(result instanceof Node)) {
+                    newNode = new Text("" + result);
+                  }
+                  info.host.insertBefore(newNode, info.node || info.marker);
+                  info.node.remove();
+                  info.node = newNode;
+                }
+              }
             }
-          } else if (info.marker) {
-            if (value instanceof Directive) {
+          }
+
+          if (info.marker) {
+            if (value.isDirectiveResult) {
+              /**@type {Directive} */
+              const instance = new value.Class({
+                host: info.host,
+                marker: info.markder,
+                node: info.node,
+              });
             } else if (value instanceof TemplateResult) {
+            } else if (typeof value === "string") {
+              if (info.node) {
+                info.node.textContent = value;
+              } else {
+                const node = new Text(value);
+                info.node = node;
+                info.host.insertBefore(info.marker, node);
+              }
             }
+          } else if (value instanceof Directive) {
           }
       }
     }
@@ -252,7 +290,15 @@ export const render = (template, containerElement, opt) => {
   }
 };
 
-class Directive {
+export class Directive {
+  constructor({ host, marker, node }) {}
   render(...values) {}
-  update(part) {}
 }
+
+/**
+ * @param { typeof Directive } C
+ * @return { (...values: any[])=> DirectiveResult }
+ */
+export const directive = (C) => {
+  return (...values) => ({ Class: C, isDirectiveResult: true, values });
+};
