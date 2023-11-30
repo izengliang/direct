@@ -1,9 +1,41 @@
+const weakmap = new WeakMap();
+
+const container = Symbol.for("#container");
+
+/**
+ * template
+ */
+class TemplateResult {
+  /**
+   * @type {Element}
+   */
+  [container];
+
+  /**
+   * @type {DocumentFragment}
+   */
+  fragment;
+
+  render() {}
+}
+
+/**
+ *
+ * @param {TemplateResult} template
+ * @param {Element} containerElement
+ * @param {*} opt
+ */
+export const render = (template, containerElement, opt) => {
+  template.render();
+  if (containerElement !== template[container]) {
+    containerElement.append(template.fragment);
+    template[container] = containerElement;
+  }
+};
+
 class Directive {
   render(...values) {}
   update(part) {}
-  getValue() {
-    return "hello..... my directive";
-  }
 }
 
 const map = new Map();
@@ -209,34 +241,3 @@ export function html(strings, ...values) {
     return t.content;
   }
 }
-
-const click = (e) => console.log(e, 222);
-const classes = "a b";
-const child = "child";
-const title = "my title";
-const styles = "color:red";
-
-const txt = "tttttt";
-
-const render = (styles, classes, click) => html` <div
-  @click=${click}
-  class=${classes}
-  style=${styles}
-  .title=${title}
->
-  ${child} hello ${child}
-</div>`;
-
-document.body.append(render(styles, classes, click));
-
-setTimeout(() => {
-  render(
-    `
-    background-color:green;
-    `,
-    "d",
-    function () {
-      console.log("ooook");
-    }
-  );
-}, 3000);
