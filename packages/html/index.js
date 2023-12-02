@@ -97,7 +97,6 @@ export class TemplateSource {
 
     for (let i = 0; i < strings.length - 1; i++) {
       const s = strings[i];
-
       // is event handler
       if (/\s*@(\w*)=\s*$/.test(s)) {
         const eventName = RegExp.$1;
@@ -129,6 +128,7 @@ export class TemplateSource {
       } else {
         const beforeString = strings.slice(0, i).join("");
         const tagIndex = beforeString.lastIndexOf("<");
+        template += s;
         if (
           tagIndex !== -1 &&
           /^<[a-z][A-Za-z0-9_\-]*(\s|.*\s)$/.test(beforeString.slice(tagIndex))
@@ -179,7 +179,7 @@ export class TemplateSource {
     elements.forEach((n, i, parent) => {
       for (let mark in n.dataset) {
         if (/^___marker\-\d+$/.test(mark)) {
-          const info =  JSON.parse(n.dataset[mark])
+          const info = JSON.parse(n.dataset[mark]);
           valueInfos.push({
             ...info,
             host: n, // link host index
@@ -196,8 +196,8 @@ export class TemplateSource {
         const info = JSON.parse(RegExp.$1);
         valueInfos.push({
           ...info,
-          marker: commentText,
-          host: commentText.parentNode,
+          marker: comment,
+          host: comment.parentNode,
         });
       }
     });
@@ -269,6 +269,7 @@ export class Template {
                 // is child
                 if (info.marker) {
                   //render TemplateResult
+
                   render(result, info.host);
                 }
               } else {
@@ -297,7 +298,6 @@ export class Template {
               info.directive = directive;
             } else if (value.isTemplateResult) {
               // render template
-
               render(value, info.host);
             } else if (typeof value === "string") {
               if (info.node) {
@@ -305,7 +305,7 @@ export class Template {
               } else {
                 const node = new Text(value);
                 info.node = node;
-                info.host.insertBefore(info.marker, node);
+                info.host.insertBefore(node,info.marker);
               }
             }
           } else if (value.isDirectiveResult) {
@@ -387,4 +387,5 @@ export const directive = (C) => {
 export const html = (strings, ...values) => ({
   strings,
   values,
+  isTemplateResult: true,
 });
