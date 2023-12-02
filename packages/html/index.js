@@ -1,3 +1,17 @@
+function stringsToHash(strings) {
+  const string = strings.join("");
+  let hash = 0;
+
+  if (string.length == 0) return hash;
+
+  for (let i = 0; i < string.length; i++) {
+    let char = string.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash;
+  }
+  return "t" + hash;
+}
+
 /**
  * value information
  *
@@ -15,10 +29,17 @@
  */
 
 /**
+ * @typedef { {strings: string[] ; values: any[] ; isTemplateResult: true} } TemplateResult
+ */
+
+/**
  * @typedef {{ Class: typeof Directive , isDirectiveResult: true, values: any[] }} DirectiveResult
  */
 
 export const nothing = Symbol();
+
+const templateSourceCache = new WeakMap();
+const templateStringsCache = new WeakMap();
 
 /**
  *
@@ -41,8 +62,6 @@ export const getAllComments = (dom) => {
   return comments;
 };
 
-const templateCache = new Map();
-
 /**
  * @enum {number}
  */
@@ -56,7 +75,7 @@ export const ValueType = {
 
 Object.freeze(ValueType);
 
-export class Template {
+export class TemplateSource {
   /**
    * @readonly
    * @type {string[]}
@@ -73,26 +92,26 @@ export class Template {
    * mark value position info.
    */
   #mark() {
+    const strings = this.strings;
     let template = "";
 
-    const strings = this.strings;
     for (let i = 0; i < strings.length - 1; i++) {
       const s = strings[i];
 
       // is event handler
       if (/\s*@(\w*)=\s*$/.test(s)) {
         const eventName = RegExp.$1;
-        const s = RegExp["$`"];
-        template += s;
+        const $s = RegExp["$`"];
+        template += $s;
         template += ` data-___marker-${i}='${JSON.stringify({
           position: i,
           eventName,
           type: ValueType.EVENT,
         })}'`;
       } else if (/\s*\.(\w*)=\s*$/.test(s)) {
-        const s = RegExp["$`"];
+        const $s = RegExp["$`"];
+        template += $s;
         const propertyName = RegExp.$1;
-        template += s;
         template += ` data-___marker-${i}='${JSON.stringify({
           position: i,
           type: ValueType.PROPERTY,
@@ -100,34 +119,33 @@ export class Template {
         })}'`;
       } else if (/\s*(\w*)=\s*$/.test(s)) {
         const attributeName = RegExp.$1;
-        const s = RegExp["$`"];
-        template += s;
+        const $s = RegExp["$`"];
+        template += $s;
         template += ` data-___marker-${i}='${JSON.stringify({
-          index: i,
+          position: i,
           type: ValueType.ATTRIBUTE,
           attributeName,
         })}'`;
       } else {
         const beforeString = strings.slice(0, i).join("");
         const tagIndex = beforeString.lastIndexOf("<");
-
         if (
           tagIndex !== -1 &&
           /^<[a-z][A-Za-z0-9_\-]*(\s|.*\s)$/.test(beforeString.slice(tagIndex))
         ) {
-          template += s;
           template += ` data-___marker-${i}='${JSON.stringify({
-            index: i,
+            position: i,
             type: ValueType.DIRECTIVE,
           })}'`;
         } else {
-          template += s;
           template += `<!--data-___marker-${i}=${JSON.stringify({
-            index: i,
+            position: i,
           })}-->`;
         }
       }
     }
+
+    template += strings.at(-1);
     this.#markedTemplateString = template;
   }
 
@@ -144,24 +162,32 @@ export class Template {
     }
   }
 
-  createTemplateResult() {
+  /**
+   * @Todo Can be separated into two parts: slot and node.
+   * @returns { Template }
+   */
+  createTemplate() {
     if (!this.#templateFragment) {
       this.createTemplateFragment();
     }
     const valueInfos = [];
     const templateFragment = this.#templateFragment.cloneNode(true);
+    /**
+     * @type  {NodeList}
+     */
     const elements = templateFragment.querySelectorAll("*");
-    for (let n of elements) {
+    elements.forEach((n, i, parent) => {
       for (let mark in n.dataset) {
         if (/^___marker\-\d+$/.test(mark)) {
+          const info =  JSON.parse(n.dataset[mark])
           valueInfos.push({
             ...info,
-            host: n, // link host
+            host: n, // link host index
           });
           delete n.dataset[mark];
         }
       }
-    }
+    });
 
     const comments = getAllComments(templateFragment);
     comments.forEach((comment) => {
@@ -171,19 +197,15 @@ export class Template {
         valueInfos.push({
           ...info,
           marker: commentText,
-          host: n.parentNode,
+          host: commentText.parentNode,
         });
       }
     });
-
-    return new TemplateResult(templateFragment, valueInfos);
+    return new Template(templateFragment, valueInfos);
   }
 }
 
-/**
- * template result
- */
-class TemplateResult {
+export class Template {
   /**
    * @type {DocumentFragment}
    */
@@ -211,55 +233,72 @@ class TemplateResult {
   render(values) {
     for (let info of this.valueInfos) {
       const value = values[info.position];
-      const oldValue = this.#oldValues[info.position];
+      const oldValue = this.#oldValues && this.#oldValues[info.position];
 
       switch (info.type) {
         case ValueType.ATTRIBUTE:
           {
-            info.host.setAttribute(info.attributeName, value);
+            if (!this.#oldValues || oldValue !== value) {
+              info.host.setAttribute(info.attributeName, value);
+            }
           }
           break;
         case ValueType.EVENT:
           {
-            oldValue && info.host.removeEventListener(info.eventName, oldValue);
-            info.host.setAttribute(info.eventName, value);
+            if (!this.#oldValues || oldValue !== value) {
+              oldValue &&
+                info.host.removeEventListener(info.eventName, oldValue);
+              info.host.addEventListener(info.eventName, value);
+            }
           }
           break;
         case ValueType.PROPERTY:
           {
-            info.host[info.propertyName] = value;
+            if (!this.#oldValues || oldValue !== value) {
+              info.host[info.propertyName] = value;
+            }
           }
           break;
 
         default:
+          // the value is a directive.
           if (info.directive) {
             const result = info.directive.render(value.values);
             if (result !== nothing) {
               if (result instanceof TemplateResult) {
-                //render TemplateResult
+                // is child
+                if (info.marker) {
+                  //render TemplateResult
+                  render(result, info.host);
+                }
               } else {
+                // when value position is child
                 if (info.marker && result !== info.node) {
                   let newNode;
                   if (!(result instanceof Node)) {
                     newNode = new Text("" + result);
                   }
+
                   info.host.insertBefore(newNode, info.node || info.marker);
                   info.node.remove();
                   info.node = newNode;
                 }
               }
             }
-          }
-
-          if (info.marker) {
+          } else if (info.marker) {
+            // is child
             if (value.isDirectiveResult) {
               /**@type {Directive} */
-              const instance = new value.Class({
+              const directive = new value.Class({
                 host: info.host,
-                marker: info.markder,
+                marker: info.marker,
                 node: info.node,
               });
-            } else if (value instanceof TemplateResult) {
+              info.directive = directive;
+            } else if (value.isTemplateResult) {
+              // render template
+
+              render(value, info.host);
             } else if (typeof value === "string") {
               if (info.node) {
                 info.node.textContent = value;
@@ -269,25 +308,67 @@ class TemplateResult {
                 info.host.insertBefore(info.marker, node);
               }
             }
-          } else if (value instanceof Directive) {
+          } else if (value.isDirectiveResult) {
+            const directive = new value.Class({
+              host: info.host,
+              marker: info.markder,
+              node: info.node,
+            });
+            info.directive = directive;
           }
       }
     }
+    this.#oldValues = values;
   }
 }
 
+export const queryTemplateStrings = (strings) => {};
+
 /**
  *
- * @param {TemplateResult} template
+ * @param {TemplateResult} templateResult
  * @param {Element} containerElement
  * @param {*} opt
  */
-export const render = (template, containerElement, opt) => {
-  template.render();
-  if (containerElement !== template[container]) {
-    containerElement.append(template.fragment);
-    template[container] = containerElement;
+export const render = (templateResult, containerElement) => {
+  /**
+   * @type {Template}
+   */
+  let template = containerElement["__$template"];
+  if (!template) {
+    /**
+     * find strings object from doms.
+     */
+    const stringsId = stringsToHash(templateResult.strings);
+    const node = document.querySelector(`data-template-strings-${stringsId}`);
+    /**
+     * @type {TemplateSource}
+     */
+    let templateSource;
+    let strings;
+    if (node) {
+      strings = templateStringsCache.get(node);
+      if (strings) {
+        templateSource = templateSourceCache.get(strings);
+      }
+    }
+    if (!templateSource) {
+      if (!strings) {
+        strings = templateResult.strings;
+      }
+      templateSource = new TemplateSource(strings);
+      templateStringsCache.set(containerElement, strings);
+      templateSourceCache.set(strings, templateSource);
+      containerElement.setAttribute(`data-template-strings-${stringsId}`, "");
+    }
+
+    template = templateSource.createTemplate();
+
+    containerElement["__$template"] = template;
+    containerElement.appendChild(template.templateFragment);
   }
+
+  template.render(templateResult.values);
 };
 
 export class Directive {
@@ -302,3 +383,8 @@ export class Directive {
 export const directive = (C) => {
   return (...values) => ({ Class: C, isDirectiveResult: true, values });
 };
+
+export const html = (strings, ...values) => ({
+  strings,
+  values,
+});
