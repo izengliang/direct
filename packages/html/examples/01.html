@@ -4,26 +4,53 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Document</title>
+    <style>
+      article {
+        font-size:2rem;
+        background-color: aliceblue;
+        & header {
+          background-color: cornflowerblue;
+          color: aliceblue;
+          padding: 5px;
+        }
+
+        & div {
+          padding: 5px;
+        }
+
+        & div:nth-child(3){
+          font-size: 3rem;
+        }
+
+      }
+    </style>
   </head>
   <body>
-    <div id="box1"></div>
+    <div id="container"></div>
+
     <script type="module">
+      // import { render, html } from "@izengliang/direct";
       import { render, html } from "../index.js";
 
-      const clickme = () => {
-        renderBox({ style: "color:red", title: "2222222" });
+      let title = "click me! change num";
+      let content = "my content";
+      let num = 0;
+      const click_handler = () => {
+        ++num;
+        run();
       };
 
-      const renderBox = ({ style, title }) => {
+      const run = () =>
         render(
-          html`<h1 style=${style} @click=${clickme} .title=${title}>
-            111 ${html`<span>${title}</span>`}
-          </h1>`,
-          box1
+          html`<article @click=${click_handler}>
+            <header>${title}</header>
+            <div>${content}</div>
+            <div>${num}</div>
+          </article>`,
+          container
         );
-      };
 
-      renderBox({ style: "color:blue", title: "1111111" });
+      run();
     </script>
   </body>
 </html>

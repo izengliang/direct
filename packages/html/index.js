@@ -1,46 +1,9 @@
-function stringsToHash(strings) {
-  const string = strings.join("");
-  let hash = 0;
-
-  if (string.length == 0) return hash;
-
-  for (let i = 0; i < string.length; i++) {
-    let char = string.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash = hash & hash;
-  }
-  return "t" + hash;
-}
-
-/**
- * value information
- *
- * @typedef ValueInfo
- * @property { Element } [host]
- * @property { Element } [node]
- * @property { Comment } [marker] - When the position of value is the child of the host.
- * @property { number } position - value index from values.
- * @property { string } [propertyName]
- * @property { string } [eventName]
- * @property { string } [attributeName]
- * @property { Directive } [directive]
- * @property { ValueType } type
- *
- */
-
-/**
- * @typedef { {strings: string[] ; values: any[] ; isTemplateResult: true} } TemplateResult
- */
-
-/**
- * @typedef {{ Class: typeof Directive , isDirectiveResult: true, values: any[] }} DirectiveResult
- */
-
-export const nothing = Symbol();
-
-const templateSourceCache = new WeakMap();
-const templateStringsCache = new WeakMap();
-
+export const ValueType = {
+  EVENT: 0,
+  ATTRIBUTE: 1,
+  PROPERTY: 2,
+  DIRECTIVE: 3,
+};
 /**
  *
  * @param {Element} dom
@@ -61,21 +24,183 @@ export const getAllComments = (dom) => {
   find(dom);
   return comments;
 };
+/**
+ * slot
+ */
+export class ValueSlot {
+  /**
+   * @type {number}
+   */
+  position;
+
+  /**
+   * @type {Element}
+   */
+  host;
+
+  /**
+   * @type {boolean}
+   */
+  isChild;
+
+  /**
+   * if isChild = true , must provide it.
+   * @type {?Comment}
+   */
+  marker;
+
+  prveValue;
+
+  /**
+   * TODO
+   * change node's attributes / properties / events / children
+   * @param {SlotValue} value
+   */
+  setValue(value) {
+    if (this.prevHandler !== value) {
+      if (typeof value === "string" || typeof value === "number") {
+        value = String(value);
+        if (!this.node) {
+          this.node = new Text();
+          this.host.insertBefore(this.node, this.marker);
+        }
+        this.node.textContent = value;
+      }
+    }
+
+    this.prevValue = value;
+  }
+}
+
+class AttributeSlot extends ValueSlot {
+  /**
+   * @type {string}
+   */
+  attribute;
+
+  prevValue;
+
+  setValue(value) {
+    if (value !== this.prevValue) {
+      this.host.setAttribute(this.attribute, value);
+    }
+    this.prevValue = value;
+  }
+}
+
+class PropertySlot extends ValueSlot {
+  /**
+   * @type {string}
+   */
+  property;
+
+  prevValue;
+
+  setValue(value) {
+    if (value !== this.prevValue) {
+      this.host[this.property] = value;
+    }
+    this.prevValue = value;
+  }
+}
+
+class EventSlot extends ValueSlot {
+  /**
+   * @type {string}
+   */
+  event;
+
+  prevHandler;
+
+  setValue(handler) {
+    if (!handler && this.prevHandler) {
+      this.host.removeEventListener(this.event, this.prevHandler);
+    } else if (this.prevHandler !== handler) {
+      this.host.removeEventListener(this.event, this.prevHandler);
+      this.host.addEventListener(this.event, handler);
+    }
+
+    this.prevHandler = handler;
+  }
+}
+
+class DirectiveSlot extends ValueSlot {
+  /**
+   * @param {Directive} directive
+   */
+  setValue(directive) {}
+}
+
+// dynamic
+export class View {
+  /**
+   *
+   * @param {Template} template
+   */
+  constructor(template) {
+    this.template = template;
+    const [fragment, slots] = template.generate();
+    this.slots = slots;
+    this.nodes = [...fragment.children];
+  }
+
+  fragment;
+
+  /**
+   * @type { Node[] } nodes;
+   */
+  nodes = [];
+
+  /**
+   * @type {ViewSlot[]}
+   */
+  slots;
+
+  /**
+   * @type {Template}
+   */
+  template;
+
+  render(values) {
+    values &&
+      values.forEach((value, i) => {
+        this.slots[i].setValue(value);
+      });
+  }
+
+  // TODO
+  remove() {}
+}
 
 /**
- * @enum {number}
+ * @typedef  TemplateResult
+ * @property { string[] } strings
+ * @property { any[] } values
+ * @property { boolean } isTemplateResult
+ *
+ * @typedef DirectiveResult
+ * @property { any[] } args
+ * @property { boolean } isDirectiveResult
+ *
+ * @typedef { string | number | boolean | TemplateResult | TemplateResult[] | DirectiveResult } SlotValue
  */
-export const ValueType = {
-  EVENT: 0,
-  PROPERTY: 1,
-  ATTRIBUTE: 2,
-  DIRECTIVE: 3,
-  TEMPLATE_RESULT: 4,
-};
 
-Object.freeze(ValueType);
+export class Directive {
+  /**
+   *
+   * @param {ValueSlot} slot
+   */
+  render(slot) {}
+}
 
-export class TemplateSource {
+/**
+ * @param {typeof Directive} C
+ * @returns {DirectiveResult}
+ */
+export const directive = (C) => {};
+
+// static template
+export class Template {
   /**
    * @readonly
    * @type {string[]}
@@ -85,8 +210,6 @@ export class TemplateSource {
     this.strings = strings;
     this.#mark();
   }
-
-  #markedTemplateString;
 
   /**
    * mark value position info.
@@ -146,7 +269,11 @@ export class TemplateSource {
     }
 
     template += strings.at(-1);
-    this.#markedTemplateString = template;
+    if (!this.#templateFragment) {
+      const templateElement = document.createElement("template");
+      templateElement.innerHTML = template;
+      this.#templateFragment = templateElement.content;
+    }
   }
 
   /**
@@ -154,36 +281,61 @@ export class TemplateSource {
    */
   #templateFragment;
 
-  createTemplateFragment() {
-    if (!this.#templateFragment) {
-      const template = document.createElement("template");
-      template.innerHTML = this.#markedTemplateString;
-      this.#templateFragment = template.content;
-    }
-  }
-
   /**
-   * @Todo Can be separated into two parts: slot and node.
-   * @returns { Template }
+   * @returns  { [DocumentFragment, ValueSlot[]] }
    */
-  createTemplate() {
-    if (!this.#templateFragment) {
-      this.createTemplateFragment();
-    }
-    const valueInfos = [];
+  generate() {
     const templateFragment = this.#templateFragment.cloneNode(true);
+    const slots = [];
     /**
      * @type  {NodeList}
      */
     const elements = templateFragment.querySelectorAll("*");
-    elements.forEach((n, i, parent) => {
+    elements.forEach((n) => {
       for (let mark in n.dataset) {
         if (/^___marker\-\d+$/.test(mark)) {
           const info = JSON.parse(n.dataset[mark]);
-          valueInfos.push({
-            ...info,
-            host: n, // link host index
-          });
+
+          switch (info.type) {
+            case ValueType.ATTRIBUTE:
+              {
+                const slot = new AttributeSlot();
+                slot.attribute = info.attributeName;
+                slot.position = info.position;
+                slot.host = n;
+                slot.isChild = true;
+                slots[info.position] = slot;
+              }
+              break;
+            case ValueType.PROPERTY:
+              {
+                const slot = new PropertySlot();
+                slot.property = info.propertyName;
+                slot.position = info.position;
+                slot.host = n;
+                slot.isChild = true;
+
+                slots[info.position] = slot;
+              }
+              break;
+            case ValueType.EVENT:
+              {
+                const slot = new EventSlot();
+                slot.event = info.eventName;
+                slot.position = info.position;
+                slot.isChild = true;
+
+                slot.host = n;
+                slots[info.position] = slot;
+              }
+              break;
+            case ValueType.DIRECTIVE:
+              const slot = new DirectiveSlot();
+              slots[info.position] = slot;
+              slot.isChild = true;
+              break;
+          }
+
           delete n.dataset[mark];
         }
       }
@@ -194,198 +346,36 @@ export class TemplateSource {
       const commentText = comment.textContent;
       if (/^data-___marker\-\d+=(.*)/.test(commentText)) {
         const info = JSON.parse(RegExp.$1);
-        valueInfos.push({
-          ...info,
-          marker: comment,
-          host: comment.parentNode,
-        });
+        const slot = new ValueSlot();
+        slot.position = info.position;
+        slot.marker = comment;
+        slot.host = comment.parentElement;
+        slots[info.position] = slot;
       }
     });
-    return new Template(templateFragment, valueInfos);
+
+    return [templateFragment, slots];
   }
 }
 
-export class Template {
-  /**
-   * @type {DocumentFragment}
-   */
-  templateFragment;
-
-  /**
-   * @type {ValueInfo[]}
-   */
-  valueInfos;
-
-  /**
-   * @param {DocumentFragment} templateFragment;
-   * @param {ValueInfo[]} valueInfos;
-   */
-  constructor(templateFragment, valueInfos) {
-    this.templateFragment = templateFragment;
-    this.valueInfos = valueInfos;
-  }
-
-  #oldValues;
-
-  /**
-   * @param {any[]} values
-   */
-  render(values) {
-    for (let info of this.valueInfos) {
-      const value = values[info.position];
-      const oldValue = this.#oldValues && this.#oldValues[info.position];
-
-      switch (info.type) {
-        case ValueType.ATTRIBUTE:
-          {
-            if (!this.#oldValues || oldValue !== value) {
-              info.host.setAttribute(info.attributeName, value);
-            }
-          }
-          break;
-        case ValueType.EVENT:
-          {
-            if (!this.#oldValues || oldValue !== value) {
-              oldValue &&
-                info.host.removeEventListener(info.eventName, oldValue);
-              info.host.addEventListener(info.eventName, value);
-            }
-          }
-          break;
-        case ValueType.PROPERTY:
-          {
-            if (!this.#oldValues || oldValue !== value) {
-              info.host[info.propertyName] = value;
-            }
-          }
-          break;
-
-        default:
-          // the value is a directive.
-          if (info.directive) {
-            const result = info.directive.render(value.values);
-            if (result !== nothing) {
-              if (result instanceof TemplateResult) {
-                // is child
-                if (info.marker) {
-                  //render TemplateResult
-
-                  render(result, info.host);
-                }
-              } else {
-                // when value position is child
-                if (info.marker && result !== info.node) {
-                  let newNode;
-                  if (!(result instanceof Node)) {
-                    newNode = new Text("" + result);
-                  }
-
-                  info.host.insertBefore(newNode, info.node || info.marker);
-                  info.node.remove();
-                  info.node = newNode;
-                }
-              }
-            }
-          } else if (info.marker) {
-            // is child
-            if (value.isDirectiveResult) {
-              /**@type {Directive} */
-              const directive = new value.Class({
-                host: info.host,
-                marker: info.marker,
-                node: info.node,
-              });
-              info.directive = directive;
-            } else if (value.isTemplateResult) {
-              // render template
-              render(value, info.host);
-            } else if (typeof value === "string") {
-              if (info.node) {
-                info.node.textContent = value;
-              } else {
-                const node = new Text(value);
-                info.node = node;
-                info.host.insertBefore(node,info.marker);
-              }
-            }
-          } else if (value.isDirectiveResult) {
-            const directive = new value.Class({
-              host: info.host,
-              marker: info.markder,
-              node: info.node,
-            });
-            info.directive = directive;
-          }
-      }
-    }
-    this.#oldValues = values;
-  }
-}
-
-export const queryTemplateStrings = (strings) => {};
+export const html = (strings, ...values) => {
+  return { strings, values };
+};
 
 /**
  *
  * @param {TemplateResult} templateResult
- * @param {Element} containerElement
- * @param {*} opt
+ * @param {Element} container
+ * @param { { cid?:string } } options - top provide cid.  part id.
  */
-export const render = (templateResult, containerElement) => {
-  /**
-   * @type {Template}
-   */
-  let template = containerElement["__$template"];
-  if (!template) {
-    /**
-     * find strings object from doms.
-     */
-    const stringsId = stringsToHash(templateResult.strings);
-    const node = document.querySelector(`data-template-strings-${stringsId}`);
-    /**
-     * @type {TemplateSource}
-     */
-    let templateSource;
-    let strings;
-    if (node) {
-      strings = templateStringsCache.get(node);
-      if (strings) {
-        templateSource = templateSourceCache.get(strings);
-      }
-    }
-    if (!templateSource) {
-      if (!strings) {
-        strings = templateResult.strings;
-      }
-      templateSource = new TemplateSource(strings);
-      templateStringsCache.set(containerElement, strings);
-      templateSourceCache.set(strings, templateSource);
-      containerElement.setAttribute(`data-template-strings-${stringsId}`, "");
-    }
-
-    template = templateSource.createTemplate();
-
-    containerElement["__$template"] = template;
-    containerElement.appendChild(template.templateFragment);
+export const render = (templateResult, container, options = {}) => {
+  let view = container[options.cid || ""];
+  if (!view) {
+    const template = new Template(templateResult.strings);
+    view = new View(template);
+    container[options.cid || ""] = view;
+    container.append(...view.nodes);
   }
-
-  template.render(templateResult.values);
+  view.render(templateResult.values);
+  return view;
 };
-
-export class Directive {
-  constructor({ host, marker, node }) {}
-  render(...values) {}
-}
-
-/**
- * @param { typeof Directive } C
- * @return { (...values: any[])=> DirectiveResult }
- */
-export const directive = (C) => {
-  return (...values) => ({ Class: C, isDirectiveResult: true, values });
-};
-
-export const html = (strings, ...values) => ({
-  strings,
-  values,
-  isTemplateResult: true,
-});
