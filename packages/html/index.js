@@ -29,9 +29,7 @@ export const getAllComments = (dom) => {
   find(dom);
   return comments;
 };
-/**
- * slot
- */
+
 export class ValueSlot {
   /**
    * @type {number}
@@ -171,13 +169,14 @@ export class ValueSlot {
             uid = directiveResult.args[0];
           }
 
-          const view = this.views.find((view) => view.uid === uid);
+          let view = this.views.find((view) => view.uid === uid);
+          console.log(view,uid);
           if (view) {
             oldViews.push(view);
           } else {
             const t = new Template(v.strings);
-            const view = new View(t);
-            view.render(v.values);
+            view = new View(t);
+            view.uid = uid;
             newViews.push(view);
           }
           view.render(v.values);
@@ -195,7 +194,9 @@ export class ValueSlot {
         const fragment = document.createDocumentFragment();
         newViews.forEach((v) => fragment.append(...v.nodes));
 
+        this.views = [...oldViews,...newViews];
         this.host.insertBefore(fragment, this.marker);
+        
       } else {
         this.empty();
 
@@ -358,7 +359,6 @@ export class View {
  * @property { typeof Directive } Type
  * @property { boolean } isDirectiveResult
  *
- * @typedef { string | number | boolean | TemplateResult | TemplateResult[] | DirectiveResult } SlotValue
  */
 
 export class Directive {
@@ -443,7 +443,6 @@ export class Template {
             position: i,
             type: ValueType.DIRECTIVE,
           })}'`;
-
         } else {
           template += `<!--data-___marker-${i}=${JSON.stringify({
             position: i,
@@ -458,7 +457,6 @@ export class Template {
       templateElement.innerHTML = template;
       this.#templateFragment = templateElement.content;
     }
-
   }
 
   /**

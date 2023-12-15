@@ -31,14 +31,17 @@
     <div id="container"></div>
 
     <script type="module">
-      // import { render, html } from "@izengliang/direct";
-      import { render, html,uid } from "../index.js";
+      // import { render, html } from "@izengliang/direct-html";
+      import { render, html, uid } from "../index.js";
 
       let title = "click me! change num";
       let content = "my content";
+      let items = [];
+      let innerhtml = "<h7> is inner html </h7>"
       let num = 0;
       const click_handler = () => {
         ++num;
+        items = [...items, num];
         run();
       };
 
@@ -48,8 +51,17 @@
             <header>${title} ${num}</header>
 
             <div>${content}</div>
+            <div .innerHTML=${innerhtml}></div>
             <div>${num}</div>
-            <div>${html`<h4 > h4 span ${num} </h4>`}</div>
+            <div>${html`<h4>h4 span ${num}</h4>`}</div>
+            <div>
+              ${items.map(
+                (item) =>
+                  html`<h3 ${uid(item)} style=${"font-size:" + item + "rem"}>
+                    Item - ${item}
+                  </h3>`
+              )}
+            </div>
           </article>`,
           container
         );
