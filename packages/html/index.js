@@ -1,8 +1,13 @@
+/**
+ * @enum {number}
+ */
 export const ValueType = {
-  EVENT: 0,
+  EVENT: 8,
   ATTRIBUTE: 1,
   PROPERTY: 2,
   DIRECTIVE: 3,
+  TEMPLATE_RESULT_ARRAY: 5,
+  NODE: 6,
 };
 /**
  *
@@ -49,7 +54,32 @@ export class ValueSlot {
    */
   marker;
 
+  views = [];
+
+  directive;
+
   prveValue;
+
+  prevValueType;
+
+  empty() {
+    switch (this.valueType) {
+      case ValueType.NODE:
+        this.node?.remove();
+        this.node = null;
+        break;
+      case ValueType.TEMPLATE_RESULT_ARRAY:
+        this.views.forEach((view) => {
+          view.remove();
+        });
+        this.views = [];
+        break;
+      case ValueType.DIRECTIVE:
+        this.directive.remove(); // @todo
+        this.directive = null;
+        break;
+    }
+  }
 
   /**
    * TODO
@@ -57,6 +87,148 @@ export class ValueSlot {
    * @param {SlotValue} value
    */
   setValue(value) {
+    let valueType;
+
+    if (value === undefined || value === null) {
+      value = "";
+    }
+
+    const type = typeof value;
+    let isBasicType = false;
+    if (
+      (isBasicType = ["string", "boolean", "number"].includes(type)) ||
+      value instanceof Node
+    ) {
+      if (isBasicType) {
+        value = new Text(value.toString());
+        valueType = ValueType.NODE;
+      }
+
+      if (valueType === this.valueType) {
+        if (this.prevValue !== value) {
+          this.host.insertBefore(value, this.node);
+          this.empty();
+        }
+      } else {
+        this.empty();
+        this.host.insertBefore(value, this.marker);
+      }
+
+      this.node = value;
+    } else if (value.isDirectiveResult) {
+      valueType = ValueType.DIRECTIVE;
+
+      if (valueType === this.valueType) {
+        if (value.Type === this.prevValue.Type) {
+          let isSame = true;
+
+          for (let i = 0, len = value.args.length; i < len; i++) {
+            if (value.args[i] !== this.prevValue.args[i]) {
+              isSame = false;
+              break;
+            }
+          }
+
+          if (!isSame) {
+            this.directive.render(...value.args);
+          }
+        } else {
+          this.empty();
+          this.directive = new value.Type(this);
+          directive.render(...value.args);
+        }
+      } else {
+        this.empty();
+        this.directive = new value.Type(this);
+        directive.render(...value.args);
+      }
+    } else if (value.isTemplateResult || Array.isArray(value)) {
+      if (value.isTemplateResult) {
+        value = [value];
+      }
+
+      valueType = ValueType.TEMPLATE_RESULT_ARRAY;
+      value = value.filter((v) => v.isTemplateResult);
+      if (valueType === this.valueType) {
+        const oldViews = [];
+        const newViews = [];
+        for (let i = 0, len = value.length; i < len; i++) {
+          /**
+           * @type {TemplateResult}
+           */
+          const v = value[i];
+
+          /**
+           * @type {DirectiveResult}
+           */
+          const directiveResult = v.values.find(
+            (o) => o.isDirectiveResult && o.Type === UID
+          );
+
+          let uid = i;
+
+          if (directiveResult) {
+            uid = directiveResult.args[0];
+          }
+
+          const view = this.views.find((view) => view.uid === uid);
+          if (view) {
+            oldViews.push(view);
+          } else {
+            const t = new Template(v.strings);
+            const view = new View(t);
+            view.render(v.values);
+            newViews.push(view);
+          }
+          view.render(v.values);
+        }
+
+        /**
+         * @type {View[]}
+         */
+        const needRemoveViews = this.views.filter(
+          (v) => !oldViews.find((ov) => ov === v)
+        );
+
+        needRemoveViews.forEach((v) => v.remove());
+
+        const fragment = document.createDocumentFragment();
+        newViews.forEach((v) => fragment.append(...v.nodes));
+
+        this.host.insertBefore(fragment, this.marker);
+      } else {
+        this.empty();
+
+        const fragment = document.createDocumentFragment();
+        for (let i = 0, len = value.length; i < len; i++) {
+          /**
+           * @type {TemplateResult}
+           */
+          const v = value[i];
+          /**
+           * @type {DirectiveResult}
+           */
+          const directiveResult = v.values.find(
+            (o) => o.isDirectiveResult && o.Type === UID
+          );
+          let uid = i;
+          if (directiveResult) {
+            uid = directiveResult.args[0];
+          }
+          const template = new Template(v.strings);
+          const view = new View(template);
+
+          view.render(v.values);
+
+          this.views.push(view);
+          view.uid = uid;
+          fragment.append(...view.nodes);
+        }
+
+        this.host.insertBefore(fragment, this.marker);
+      }
+    }
+
     if (this.prevHandler !== value) {
       if (typeof value === "string" || typeof value === "number") {
         value = String(value);
@@ -69,6 +241,7 @@ export class ValueSlot {
     }
 
     this.prevValue = value;
+    this.valueType = valueType;
   }
 }
 
@@ -169,7 +342,9 @@ export class View {
   }
 
   // TODO
-  remove() {}
+  remove() {
+    this.nodes.forEach((n) => n.remove());
+  }
 }
 
 /**
@@ -180,6 +355,7 @@ export class View {
  *
  * @typedef DirectiveResult
  * @property { any[] } args
+ * @property { typeof Directive } Type
  * @property { boolean } isDirectiveResult
  *
  * @typedef { string | number | boolean | TemplateResult | TemplateResult[] | DirectiveResult } SlotValue
@@ -191,13 +367,21 @@ export class Directive {
    * @param {ValueSlot} slot
    */
   render(slot) {}
+
+  remove() {}
 }
 
 /**
  * @param {typeof Directive} C
  * @returns {DirectiveResult}
  */
-export const directive = (C) => {};
+export const directive = (Type) => {
+  return (...args) => ({
+    args,
+    Type,
+    isDirectiveResult: true,
+  });
+};
 
 // static template
 export class Template {
@@ -249,17 +433,17 @@ export class Template {
           attributeName,
         })}'`;
       } else {
-        const beforeString = strings.slice(0, i).join("");
-        const tagIndex = beforeString.lastIndexOf("<");
         template += s;
+        const tagIndex = template.lastIndexOf("<");
         if (
           tagIndex !== -1 &&
-          /^<[a-z][A-Za-z0-9_\-]*(\s|.*\s)$/.test(beforeString.slice(tagIndex))
+          /^<[a-z][A-Za-z0-9_\-]*\s*$/.test(template.slice(tagIndex))
         ) {
           template += ` data-___marker-${i}='${JSON.stringify({
             position: i,
             type: ValueType.DIRECTIVE,
           })}'`;
+
         } else {
           template += `<!--data-___marker-${i}=${JSON.stringify({
             position: i,
@@ -274,6 +458,7 @@ export class Template {
       templateElement.innerHTML = template;
       this.#templateFragment = templateElement.content;
     }
+
   }
 
   /**
@@ -330,9 +515,12 @@ export class Template {
               }
               break;
             case ValueType.DIRECTIVE:
-              const slot = new DirectiveSlot();
-              slots[info.position] = slot;
-              slot.isChild = true;
+              {
+                const slot = new DirectiveSlot();
+                slots[info.position] = slot;
+                slot.isChild = true;
+                slot.host = n;
+              }
               break;
           }
 
@@ -359,7 +547,7 @@ export class Template {
 }
 
 export const html = (strings, ...values) => {
-  return { strings, values };
+  return { strings, values, isTemplateResult: true };
 };
 
 /**
@@ -370,12 +558,28 @@ export const html = (strings, ...values) => {
  */
 export const render = (templateResult, container, options = {}) => {
   let view = container[options.cid || ""];
+  if (view) {
+    if (
+      view.template.strings.toString() !== templateResult.strings.toString()
+    ) {
+      view.remove();
+      view = null;
+    }
+  }
   if (!view) {
     const template = new Template(templateResult.strings);
     view = new View(template);
     container[options.cid || ""] = view;
     container.append(...view.nodes);
   }
+
   view.render(templateResult.values);
   return view;
 };
+
+export class UID extends Directive {
+  constructor(slot) {}
+  render(id) {}
+}
+
+export const uid = directive(UID);
