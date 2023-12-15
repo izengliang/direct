@@ -2,6 +2,10 @@
 
 Direct is a simple library for building fast, lightweight web components , can directly manipulate the dom structure.
 
+# Playground
+
+https://codesandbox.io/s/priceless-wave-d48gtj?file=/index.html
+
 # Install
 
     npm install @izengliang/direct-html
@@ -35,17 +39,6 @@ html`<article title=${mytitle}>direct is directly operate DOM !</article>`;
 const myHTMLString =
   "<h1> static html content . direct not interfering with the mind.</h1>";
 html`<article .innerHTML=${myHTMLString}>
-  direct is directly operate DOM !
-</article>`;
-```
-
-```js
-// bind class and style
-
-const isBox = true;
-const myColor = "green";
-
-html`<article [class.isBox]=${isBox} [style.color]=${myColor}>
   direct is directly operate DOM !
 </article>`;
 ```
@@ -86,3 +79,19 @@ html`
   </ul>
 `;
 ```
+
+# Plan
+
+**No impolements**  please waiting ...
+
+```js
+// bind class and style  
+
+const isBox = true;
+const myColor = "green";
+
+html`<article [class.isBox]=${isBox} [style.color]=${myColor}>
+  direct is directly operate DOM !
+</article>`;
+```
+ 
