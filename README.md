@@ -11,12 +11,12 @@ https://codesandbox.io/s/priceless-wave-d48gtj?file=/index.html
     npm install @izengliang/direct-html
 
 CDN
+
 ```html
 <script src="
 https://cdn.jsdelivr.net/npm/@izengliang/direct-html/index.min.js
 "></script>
-
-```    
+```
 
 # Use
 
@@ -89,7 +89,7 @@ html`
 ```
 
 ```js
-// bind class and style  
+// bind class and style
 
 const isBox = true;
 const myColor = "green";
@@ -98,6 +98,45 @@ html`<article class.isBox=${isBox} style.backgroundColor=${myColor}>
   direct is directly operate DOM !
 </article>`;
 ```
- 
-# Plan
- 
+
+# Plan - **No implements , please waiting**
+
+### cache directive - template cache directive
+
+```js
+html` <li ${cache}></li> `;
+```
+
+### re-render mode directive
+
+```js
+html` <div ${mode(options)}></div> `;
+```
+
+### class map directive
+
+```js
+html` <div class=${classMap({ isBox: true, user: true })}></div> `;
+```
+
+### style map directive
+
+```js
+html`
+  <div class=${styleMap({ color: "blue", backgroundColor: "yellow" })}></div>
+`;
+```
+
+### Watche Object
+
+```js
+const value = { color: "blue", backgroundColor: "yellow" };
+
+html`
+  <ul>
+    <li style=${styleMap({ value, watch: true })}></li>
+  </ul>
+`;
+```
+
+
