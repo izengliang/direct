@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Direct</title>
+    <style>
+      .first {
+        font-size: 2rem;
+      }
+    </style>
+  </head>
+  <body>
+    <script type="module">
+      import {
+        html,
+        render,
+        uid,
+      } from "../index.js";
+
+      const items = [
+        {
+          id: "zengliang",
+          name: "lion",
+        },
+        {
+          id: "direct",
+          name: "@izengliang/direct-html",
+        },
+      ];
+
+      render(
+        html`
+          <ul>
+            ${items.map(
+              (item, i) =>
+                html`<li class.first=${i === 0} ${uid(item.id)}>
+                  Name - ${item.name}
+                </li>`
+            )}
+          </ul>
+        `,
+        document.body
+      );
+    </script>
+  </body>
+</html>

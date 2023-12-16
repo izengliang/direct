@@ -172,7 +172,6 @@ export class ValueSlot {
           }
 
           let view = this.views.find((view) => view.uid === uid);
-          console.log(view, uid);
           if (view) {
             oldViews.push(view);
           } else {
@@ -375,7 +374,7 @@ export class View {
   render(values) {
     values &&
       values.forEach((value, i) => {
-        this.slots[i].setValue(value);
+        this.slots[i]?.setValue(value);
       });
   }
 
@@ -471,7 +470,7 @@ export class Template {
         })}'`;
       } else if (/\s*style\.([a-zA-Z]\w*)\s*=\s*$/.test(s)) {
         const attributeName = RegExp.$1;
-        
+
         const $s = RegExp["$`"];
         template += $s;
         template += ` data-___marker-${i}='${JSON.stringify({
@@ -491,13 +490,16 @@ export class Template {
       } else {
         template += s;
         const tagIndex = template.lastIndexOf("<");
+        const substr = template.slice(tagIndex);
         if (
           tagIndex !== -1 &&
-          /^<[a-z][A-Za-z0-9_\-]*\s*$/.test(template.slice(tagIndex))
+          substr.lastIndexOf(">") === -1 &&
+          /^<\s*[a-z][A-Za-z0-9_\-]*\s*/.test(template.slice(substr))
         ) {
           template += ` data-___marker-${i}='${JSON.stringify({
             position: i,
             type: ValueType.DIRECTIVE,
+            isChild: true,
           })}'`;
         } else {
           template += `<!--data-___marker-${i}=${JSON.stringify({
