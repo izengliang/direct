@@ -88,10 +88,6 @@ html`
 `;
 ```
 
-# Plan
-
-**No impolements**  please waiting ...
-
 ```js
 // bind class and style  
 
@@ -102,4 +98,6 @@ html`<article class.isBox=${isBox} style.backgroundColor=${myColor}>
   direct is directly operate DOM !
 </article>`;
 ```
+ 
+# Plan
  
