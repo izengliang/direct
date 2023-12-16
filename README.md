@@ -10,6 +10,14 @@ https://codesandbox.io/s/priceless-wave-d48gtj?file=/index.html
 
     npm install @izengliang/direct-html
 
+CDN
+```html
+<script src="
+https://cdn.jsdelivr.net/npm/@izengliang/direct-html/index.min.js
+"></script>
+
+```    
+
 # Use
 
 ```js
@@ -90,7 +98,7 @@ html`
 const isBox = true;
 const myColor = "green";
 
-html`<article [class.isBox]=${isBox} [style.color]=${myColor}>
+html`<article class.isBox=${isBox} style.backgroundColor=${myColor}>
   direct is directly operate DOM !
 </article>`;
 ```

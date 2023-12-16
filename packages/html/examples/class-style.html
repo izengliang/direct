@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <style>
+      body{
+      }
+      .isblue {
+        color: blue;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="container"></div>
+
+    <script type="module">
+      // import { render, html } from "@izengliang/direct-html";
+      import { render, html, uid } from "../index.js";
+      const isBlue = true;
+      const borderStyle = "2px solid green";
+      const run = () =>
+        render(
+          html`<div class.isblue=${isBlue} style.border=${borderStyle}>
+            class & style
+          </div>`,
+          container
+        );
+
+      run();
+    </script>
+  </body>
+</html>

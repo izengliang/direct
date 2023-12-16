@@ -8,6 +8,8 @@ export const ValueType = {
   DIRECTIVE: 3,
   TEMPLATE_RESULT_ARRAY: 5,
   NODE: 6,
+  STYLE: 7,
+  CLASS: 9,
 };
 /**
  *
@@ -170,7 +172,7 @@ export class ValueSlot {
           }
 
           let view = this.views.find((view) => view.uid === uid);
-          console.log(view,uid);
+          console.log(view, uid);
           if (view) {
             oldViews.push(view);
           } else {
@@ -194,9 +196,8 @@ export class ValueSlot {
         const fragment = document.createDocumentFragment();
         newViews.forEach((v) => fragment.append(...v.nodes));
 
-        this.views = [...oldViews,...newViews];
+        this.views = [...oldViews, ...newViews];
         this.host.insertBefore(fragment, this.marker);
-        
       } else {
         this.empty();
 
@@ -257,6 +258,42 @@ class AttributeSlot extends ValueSlot {
   setValue(value) {
     if (value !== this.prevValue) {
       this.host.setAttribute(this.attribute, value);
+    }
+    this.prevValue = value;
+  }
+}
+
+class ClassSlot extends ValueSlot {
+  /**
+   * @type {string}
+   */
+  className;
+
+  prevValue;
+
+  setValue(bool) {
+    if (bool !== this.prevValue) {
+      if (bool) {
+        this.host.classList.add(this.className);
+      } else {
+        this.host.classList.remove(this.className);
+      }
+    }
+    this.prevValue = bool;
+  }
+}
+
+class StyleSlot extends ValueSlot {
+  /**
+   * @type {string}
+   */
+  attributeName;
+
+  prevValue;
+
+  setValue(value) {
+    if (value !== this.prevValue) {
+      this.host.style[this.attributeName] = value;
     }
     this.prevValue = value;
   }
@@ -405,7 +442,7 @@ export class Template {
     for (let i = 0; i < strings.length - 1; i++) {
       const s = strings[i];
       // is event handler
-      if (/\s*@(\w*)=\s*$/.test(s)) {
+      if (/\s+@(\w*)\s*=\s*$/.test(s)) {
         const eventName = RegExp.$1;
         const $s = RegExp["$`"];
         template += $s;
@@ -414,7 +451,7 @@ export class Template {
           eventName,
           type: ValueType.EVENT,
         })}'`;
-      } else if (/\s*\.(\w*)=\s*$/.test(s)) {
+      } else if (/\s+\.(\w*)=\s*$/.test(s)) {
         const $s = RegExp["$`"];
         template += $s;
         const propertyName = RegExp.$1;
@@ -423,7 +460,7 @@ export class Template {
           type: ValueType.PROPERTY,
           propertyName,
         })}'`;
-      } else if (/\s*(\w*)=\s*$/.test(s)) {
+      } else if (/\s*(\w*)\s=\s*$/.test(s)) {
         const attributeName = RegExp.$1;
         const $s = RegExp["$`"];
         template += $s;
@@ -431,6 +468,25 @@ export class Template {
           position: i,
           type: ValueType.ATTRIBUTE,
           attributeName,
+        })}'`;
+      } else if (/\s*style\.([a-zA-Z]\w*)\s*=\s*$/.test(s)) {
+        const attributeName = RegExp.$1;
+        
+        const $s = RegExp["$`"];
+        template += $s;
+        template += ` data-___marker-${i}='${JSON.stringify({
+          position: i,
+          type: ValueType.STYLE,
+          attributeName,
+        })}'`;
+      } else if (/\s*class\.([a-zA-Z]\w*)\s*=\s*$/.test(s)) {
+        const className = RegExp.$1;
+        const $s = RegExp["$`"];
+        template += $s;
+        template += ` data-___marker-${i}='${JSON.stringify({
+          position: i,
+          type: ValueType.CLASS,
+          className,
         })}'`;
       } else {
         template += s;
@@ -505,6 +561,28 @@ export class Template {
               {
                 const slot = new EventSlot();
                 slot.event = info.eventName;
+                slot.position = info.position;
+                slot.isChild = true;
+
+                slot.host = n;
+                slots[info.position] = slot;
+              }
+              break;
+            case ValueType.CLASS:
+              {
+                const slot = new ClassSlot();
+                slot.className = info.className;
+                slot.position = info.position;
+                slot.isChild = true;
+
+                slot.host = n;
+                slots[info.position] = slot;
+              }
+              break;
+            case ValueType.STYLE:
+              {
+                const slot = new StyleSlot();
+                slot.attributeName = info.attributeName;
                 slot.position = info.position;
                 slot.isChild = true;
 
