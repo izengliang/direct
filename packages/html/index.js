@@ -318,7 +318,6 @@ class AttributeSlot extends ValueSlot {
   prevValue;
 
   setValue(value, internal) {
-    
     if (internal || !this.setModelValue(value)) {
       if (value !== this.prevValue) {
         if (this.attribute === "style" && typeof value === "object") {
@@ -331,6 +330,17 @@ class AttributeSlot extends ValueSlot {
             styleStr += s + ":" + v + ";";
           }
           this.host.setAttribute("style", styleStr);
+        } else if (this.attribute === "class" && typeof value === "object") {
+          if (this.prevClassArr) {
+            this.host.classList.remove(...this.prevClassArr);
+            this.prevClassArr = [];
+            for (let k in value) {
+              if (value[k]) {
+                this.prevClassArr.push(k);
+              }
+            }
+            this.host.classList.add(...this.prevClassArr);
+          }
         } else {
           this.host.setAttribute(this.attribute, value);
         }
@@ -553,7 +563,6 @@ export class Template {
           type: ValueType.ATTRIBUTE,
           attributeName,
         })}'`;
-
       } else if (/\s*style\.([a-zA-Z]\w*)\s*=\s*$/.test(s)) {
         const attributeName = RegExp.$1;
 
@@ -613,7 +622,6 @@ export class Template {
    * @returns  { [DocumentFragment, ValueSlot[]] }
    */
   generate() {
-
     const templateFragment = this.#templateFragment.cloneNode(true);
     const slots = [];
     /**

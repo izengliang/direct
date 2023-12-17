@@ -99,34 +99,6 @@ html`<article class.isBox=${isBox} style.backgroundColor=${myColor}>
 </article>`;
 ```
 
-# Plan - **No implements , please waiting**
-
-### cache directive - template cache directive
-
-```js
-html` <li ${cache}></li> `;
-```
-
-### re-render mode directive
-
-```js
-html` <div ${mode(options)}></div> `;
-```
-
-### class map directive
-
-```js
-html` <div class=${classMap({ isBox: true, user: true })}></div> `;
-```
-
-### style map directive
-
-```js
-html`
-  <div class=${styleMap({ color: "blue", backgroundColor: "yellow" })}></div>
-`;
-```
-
 ### backbonejs model / collection
 
 Similar to `singal`, but more efficient, simple, and intuitive.
@@ -151,6 +123,36 @@ html`
 `;
 
 ```
+
+### class map directive
+
+```js
+html` <div class=${{ isBox: true, user: true }}></div> `;
+```
+
+### style map directive
+
+```js
+html`
+  <div style=${{ color: "blue", backgroundColor: "yellow" }}></div>
+`;
+```
+
+# Plan - **No implements , please waiting**
+
+### cache directive - template cache directive
+
+```js
+html` <li ${cache}></li> `;
+```
+
+### re-render mode directive
+
+```js
+html` <div ${mode(options)}></div> `;
+```
+
+
 
 
 
