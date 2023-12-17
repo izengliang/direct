@@ -127,16 +127,31 @@ html`
 `;
 ```
 
-### Watche Object
+### backbonejs model / collection
+
+Similar to `singal`, but more efficient, simple, and intuitive.
+
+when modal/collection update , then render minimum range view.
 
 ```js
-const value = { color: "blue", backgroundColor: "yellow" };
+import { Model } from "backbone";
+import { html, watch } from "@izengliang/direct-html";
+
+const styleModel = new Model({ color: "blue", backgroundColor: "yellow" });
+
+const data = new Model({ title: "my title", content: "my content" });
 
 html`
-  <ul>
-    <li style=${styleMap({ value, watch: true })}></li>
-  </ul>
+  <article>
+    <header style=${styleMap(value)}>${watch(data, "title")}</header>
+    <div >
+      ${watch(data, "content")}
+    </div>
+  </article>
 `;
+
 ```
+
+
 
 

@@ -1,3 +1,5 @@
+export * from "./watch.js";
+
 /**
  * @enum {number}
  */
@@ -62,6 +64,8 @@ export class ValueSlot {
 
   prevValueType;
 
+  // watchedObject;
+
   empty() {
     switch (this.valueType) {
       case ValueType.NODE:
@@ -78,6 +82,59 @@ export class ValueSlot {
         this.directive.remove(); // @todo
         this.directive = null;
         break;
+
+      // case ValueType.WATCH:
+      //   this.prevValue.model.off("change", this.onChange);
+      //   break;
+
+      // case ValueType.MODEL:
+      //   this.prevValue.off("change", this.onChange);
+      //   break;
+    }
+  }
+
+  _emptyModel() {
+    if (this.prevModel) {
+      this.prevModel.off("change", this.onChange);
+      this.prevModel = null;
+    } else if (this.prevWatch) {
+      this.prevWatch.model.off(
+        "change" + this.prevWatch.attribute,
+        this.onChange
+      );
+    }
+  }
+
+  setModelValue(value) {
+    if (value && value instanceof Backbone.Model) {
+      if (value !== this.prevModel) {
+        this._emptyModel();
+        this.onChange = (v) => {
+          this.setValue(v.toJSON(), true);
+        };
+
+        value.on("change", this.onChange);
+        this.prevModel = value;
+        this.setValue(value.toJSON(), true);
+      }
+
+      return true;
+    } else if (value && value.isWatch) {
+      if (
+        this.prevWatch &&
+        (value.attribute !== this.prevWatch.attribute ||
+          value.model !== this.prevWatch.model)
+      ) {
+        this._emptyModel();
+      }
+      this.onChange = (v) => {
+        this.setValue(v.changed[this.prevWatch.attribute], true);
+      };
+      value.model.on("change:" + value.attribute, this.onChange);
+      this.setValue(value.model.get(value.attribute), true);
+      this.prevWatch = value;
+
+      return true;
     }
   }
 
@@ -86,163 +143,169 @@ export class ValueSlot {
    * change node's attributes / properties / events / children
    * @param {SlotValue} value
    */
-  setValue(value) {
-    let valueType;
-
-    if (value === undefined || value === null) {
-      value = "";
-    }
-
-    const type = typeof value;
-    let isBasicType = false;
-    if (
-      (isBasicType = ["string", "boolean", "number"].includes(type)) ||
-      value instanceof Node
-    ) {
-      if (isBasicType) {
-        value = new Text(value.toString());
-        valueType = ValueType.NODE;
+  setValue(value, internal) {
+    if (!this.setModelValue(value)) {
+      if (!internal) {
+        this._emptyModel();
       }
 
-      if (valueType === this.valueType) {
-        if (this.prevValue !== value) {
-          this.host.insertBefore(value, this.node);
-          this.empty();
+      let valueType;
+
+      if (value === undefined || value === null) {
+        value = "";
+      }
+
+      const type = typeof value;
+      let isBasicType = false;
+      if (
+        (isBasicType = ["string", "boolean", "number"].includes(type)) ||
+        value instanceof Node
+      ) {
+        if (isBasicType) {
+          value = new Text(value.toString());
+          valueType = ValueType.NODE;
         }
-      } else {
-        this.empty();
-        this.host.insertBefore(value, this.marker);
-      }
 
-      this.node = value;
-    } else if (value.isDirectiveResult) {
-      valueType = ValueType.DIRECTIVE;
-
-      if (valueType === this.valueType) {
-        if (value.Type === this.prevValue.Type) {
-          let isSame = true;
-
-          for (let i = 0, len = value.args.length; i < len; i++) {
-            if (value.args[i] !== this.prevValue.args[i]) {
-              isSame = false;
-              break;
-            }
+        if (valueType === this.valueType) {
+          if (this.prevValue !== value) {
+            this.host.insertBefore(value, this.node);
+            this.empty();
           }
+        } else {
+          this.empty();
+          this.host.insertBefore(value, this.marker);
+        }
 
-          if (!isSame) {
-            this.directive.render(...value.args);
+        this.node = value;
+      } else if (value.isDirectiveResult) {
+        valueType = ValueType.DIRECTIVE;
+
+        if (valueType === this.valueType) {
+          if (value.Type === this.prevValue.Type) {
+            let isSame = true;
+
+            for (let i = 0, len = value.args.length; i < len; i++) {
+              if (value.args[i] !== this.prevValue.args[i]) {
+                isSame = false;
+                break;
+              }
+            }
+
+            if (!isSame) {
+              this.directive.render(...value.args);
+            }
+          } else {
+            this.empty();
+            this.directive = new value.Type(this);
+            directive.render(...value.args);
           }
         } else {
           this.empty();
           this.directive = new value.Type(this);
           directive.render(...value.args);
         }
-      } else {
-        this.empty();
-        this.directive = new value.Type(this);
-        directive.render(...value.args);
-      }
-    } else if (value.isTemplateResult || Array.isArray(value)) {
-      if (value.isTemplateResult) {
-        value = [value];
-      }
+      } else if (value.isTemplateResult || Array.isArray(value)) {
+        if (value.isTemplateResult) {
+          value = [value];
+        }
 
-      valueType = ValueType.TEMPLATE_RESULT_ARRAY;
-      value = value.filter((v) => v.isTemplateResult);
-      if (valueType === this.valueType) {
-        const oldViews = [];
-        const newViews = [];
-        for (let i = 0, len = value.length; i < len; i++) {
-          /**
-           * @type {TemplateResult}
-           */
-          const v = value[i];
+        valueType = ValueType.TEMPLATE_RESULT_ARRAY;
+        value = value.filter((v) => v.isTemplateResult);
+        if (valueType === this.valueType) {
+          const oldViews = [];
+          const newViews = [];
+          for (let i = 0, len = value.length; i < len; i++) {
+            /**
+             * @type {TemplateResult}
+             */
+            const v = value[i];
 
-          /**
-           * @type {DirectiveResult}
-           */
-          const directiveResult = v.values.find(
-            (o) => o.isDirectiveResult && o.Type === UID
-          );
+            /**
+             * @type {DirectiveResult}
+             */
+            const directiveResult = v.values.find(
+              (o) => o.isDirectiveResult && o.Type === UID
+            );
 
-          let uid = i;
+            let uid = i;
 
-          if (directiveResult) {
-            uid = directiveResult.args[0];
+            if (directiveResult) {
+              uid = directiveResult.args[0];
+            }
+
+            let view = this.views.find((view) => view.uid === uid);
+            if (view) {
+              oldViews.push(view);
+            } else {
+              const t = new Template(v.strings);
+              view = new View(t);
+              view.uid = uid;
+              newViews.push(view);
+            }
+            view.render(v.values);
           }
 
-          let view = this.views.find((view) => view.uid === uid);
-          if (view) {
-            oldViews.push(view);
-          } else {
-            const t = new Template(v.strings);
-            view = new View(t);
+          /**
+           * @type {View[]}
+           */
+          const needRemoveViews = this.views.filter(
+            (v) => !oldViews.find((ov) => ov === v)
+          );
+
+          needRemoveViews.forEach((v) => v.remove());
+
+          const fragment = document.createDocumentFragment();
+          newViews.forEach((v) => fragment.append(...v.nodes));
+
+          this.views = [...oldViews, ...newViews];
+          this.host.insertBefore(fragment, this.marker);
+        } else {
+          this.empty();
+
+          const fragment = document.createDocumentFragment();
+          for (let i = 0, len = value.length; i < len; i++) {
+            /**
+             * @type {TemplateResult}
+             */
+            const v = value[i];
+            /**
+             * @type {DirectiveResult}
+             */
+            const directiveResult = v.values.find(
+              (o) => o.isDirectiveResult && o.Type === UID
+            );
+            let uid = i;
+            if (directiveResult) {
+              uid = directiveResult.args[0];
+            }
+            const template = new Template(v.strings);
+            const view = new View(template);
+
+            view.render(v.values);
+
+            this.views.push(view);
             view.uid = uid;
-            newViews.push(view);
+            fragment.append(...view.nodes);
           }
-          view.render(v.values);
+
+          this.host.insertBefore(fragment, this.marker);
         }
-
-        /**
-         * @type {View[]}
-         */
-        const needRemoveViews = this.views.filter(
-          (v) => !oldViews.find((ov) => ov === v)
-        );
-
-        needRemoveViews.forEach((v) => v.remove());
-
-        const fragment = document.createDocumentFragment();
-        newViews.forEach((v) => fragment.append(...v.nodes));
-
-        this.views = [...oldViews, ...newViews];
-        this.host.insertBefore(fragment, this.marker);
-      } else {
-        this.empty();
-
-        const fragment = document.createDocumentFragment();
-        for (let i = 0, len = value.length; i < len; i++) {
-          /**
-           * @type {TemplateResult}
-           */
-          const v = value[i];
-          /**
-           * @type {DirectiveResult}
-           */
-          const directiveResult = v.values.find(
-            (o) => o.isDirectiveResult && o.Type === UID
-          );
-          let uid = i;
-          if (directiveResult) {
-            uid = directiveResult.args[0];
-          }
-          const template = new Template(v.strings);
-          const view = new View(template);
-
-          view.render(v.values);
-
-          this.views.push(view);
-          view.uid = uid;
-          fragment.append(...view.nodes);
-        }
-
-        this.host.insertBefore(fragment, this.marker);
       }
-    }
 
-    if (this.prevHandler !== value) {
-      if (typeof value === "string" || typeof value === "number") {
-        value = String(value);
-        if (!this.node) {
-          this.node = new Text();
-          this.host.insertBefore(this.node, this.marker);
-        }
-        this.node.textContent = value;
-      }
-    }
+      // if (this.prevHandler !== value) {
+      //   if (typeof value === "string" || typeof value === "number") {
+      //     value = String(value);
+      //     if (!this.node) {
+      //       this.node = new Text();
+      //       this.host.insertBefore(this.node, this.marker);
+      //     }
+      //     this.node.textContent = value;
+      //   }
+      // }
 
-    this.prevValue = value;
-    this.valueType = valueType;
+      this.prevValue = value;
+      this.valueType = valueType;
+    }
   }
 }
 
@@ -254,11 +317,26 @@ class AttributeSlot extends ValueSlot {
 
   prevValue;
 
-  setValue(value) {
-    if (value !== this.prevValue) {
-      this.host.setAttribute(this.attribute, value);
+  setValue(value, internal) {
+    
+    if (internal || !this.setModelValue(value)) {
+      if (value !== this.prevValue) {
+        if (this.attribute === "style" && typeof value === "object") {
+          let styleStr = "";
+          for (let k in value) {
+            const v = value[k];
+            const s = k.replace(/([A-Z])/g, (C) => {
+              return "-" + C.toLowerCase();
+            });
+            styleStr += s + ":" + v + ";";
+          }
+          this.host.setAttribute("style", styleStr);
+        } else {
+          this.host.setAttribute(this.attribute, value);
+        }
+      }
+      this.prevValue = value;
     }
-    this.prevValue = value;
   }
 }
 
@@ -270,15 +348,17 @@ class ClassSlot extends ValueSlot {
 
   prevValue;
 
-  setValue(bool) {
-    if (bool !== this.prevValue) {
-      if (bool) {
-        this.host.classList.add(this.className);
-      } else {
-        this.host.classList.remove(this.className);
+  setValue(bool, internal) {
+    if (internal || !this.setModelValue(bool)) {
+      if (bool !== this.prevValue) {
+        if (bool) {
+          this.host.classList.add(this.className);
+        } else {
+          this.host.classList.remove(this.className);
+        }
       }
+      this.prevValue = bool;
     }
-    this.prevValue = bool;
   }
 }
 
@@ -290,11 +370,13 @@ class StyleSlot extends ValueSlot {
 
   prevValue;
 
-  setValue(value) {
-    if (value !== this.prevValue) {
-      this.host.style[this.attributeName] = value;
+  setValue(value, internal) {
+    if (internal || !this.setModelValue(bool)) {
+      if (internal || value !== this.prevValue) {
+        this.host.style[this.attributeName] = value;
+      }
+      this.prevValue = value;
     }
-    this.prevValue = value;
   }
 }
 
@@ -306,11 +388,13 @@ class PropertySlot extends ValueSlot {
 
   prevValue;
 
-  setValue(value) {
-    if (value !== this.prevValue) {
-      this.host[this.property] = value;
+  setValue(value, internal) {
+    if (internal || !this.setModelValue(value)) {
+      if (value !== this.prevValue) {
+        this.host[this.property] = value;
+      }
+      this.prevValue = value;
     }
-    this.prevValue = value;
   }
 }
 
@@ -459,20 +543,23 @@ export class Template {
           type: ValueType.PROPERTY,
           propertyName,
         })}'`;
-      } else if (/\s*(\w*)\s=\s*$/.test(s)) {
+      } else if (/\s*(\w*)\s*=\s*$/.test(s)) {
         const attributeName = RegExp.$1;
         const $s = RegExp["$`"];
         template += $s;
+
         template += ` data-___marker-${i}='${JSON.stringify({
           position: i,
           type: ValueType.ATTRIBUTE,
           attributeName,
         })}'`;
+
       } else if (/\s*style\.([a-zA-Z]\w*)\s*=\s*$/.test(s)) {
         const attributeName = RegExp.$1;
 
         const $s = RegExp["$`"];
         template += $s;
+
         template += ` data-___marker-${i}='${JSON.stringify({
           position: i,
           type: ValueType.STYLE,
@@ -526,6 +613,7 @@ export class Template {
    * @returns  { [DocumentFragment, ValueSlot[]] }
    */
   generate() {
+
     const templateFragment = this.#templateFragment.cloneNode(true);
     const slots = [];
     /**

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Direct</title>
+  </head>
+  <body>
+
+    <script src="
+    https://cdn.jsdelivr.net/npm/underscore@1.13.6/underscore-min.min.js
+    "></script>
+
+    <script src=
+    "https://cdn.jsdelivr.net/npm/backbone@1.5.0/backbone-min.min.js" "></script>
+
+    <script type="module">
+      import {
+        html,
+        render,
+        uid,
+        watch,
+      } from "https://cdn.jsdelivr.net/npm/@izengliang/direct-html@0.0.4/index.min.js";
+
+      const styles = new Backbone.Model({
+        color: "blue",
+        fontSize: "1rem",
+        borderRadius: "50% 50%",
+      });
+
+      const model = new Backbone.Model({ num: 1 });
+
+      const click_handler = () => {
+        let num = model.get("num") + 1;
+        model.set("num", num);
+        styles.set("fontSize", num + "rem");
+      };
+
+      const changeColor = (e) => {
+        const color = e.target.value;
+        styles.set("color", color);
+      };
+
+      render(
+        html` <input type="color" @change=${changeColor} />
+          <div style=${styles} @click=${click_handler}>
+            ${watch(model, "num")}
+          </div>`,
+        document.body
+      );
+    </script>
+  </body>
+</html>

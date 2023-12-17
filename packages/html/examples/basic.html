@@ -29,7 +29,14 @@
   </head>
   <body>
     <div id="container"></div>
-
+    <script type="importmap">
+      {
+        "imports": {
+          "underscore": "../../../node_modules/underscore/underscore-min.js",
+          "backbone": "../../../node_modules/backbone/backbone-min.js"
+        }
+      }
+    </script>
     <script type="module">
       // import { render, html } from "@izengliang/direct-html";
       import { render, html, uid } from "../index.js";
@@ -37,7 +44,7 @@
       let title = "click me! change num";
       let content = "my content";
       let items = [];
-      let innerhtml = "<h7> is inner html </h7>"
+      let innerhtml = "<h7> is inner html </h7>";
       let num = 0;
       const click_handler = () => {
         ++num;
