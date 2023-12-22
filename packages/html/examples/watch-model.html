@@ -5,15 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
     <title>Direct</title>
+    <style>
+      .a {
+        background-color: red;
+      }
+    </style>
   </head>
   <body>
-
     <script src="
     https://cdn.jsdelivr.net/npm/underscore@1.13.6/underscore-min.min.js
     "></script>
 
-    <script src=
-    "https://cdn.jsdelivr.net/npm/backbone@1.5.0/backbone-min.min.js" "></script>
+    <script src="https://cdn.jsdelivr.net/npm/backbone@1.5.0/backbone-min.min.js"></script>
 
     <script type="module">
       import {
@@ -21,7 +24,7 @@
         render,
         uid,
         watch,
-      } from "https://cdn.jsdelivr.net/npm/@izengliang/direct-html@0.0.4/index.min.js";
+      } from "../index.js";
 
       const styles = new Backbone.Model({
         color: "blue",
@@ -30,7 +33,7 @@
       });
 
       const model = new Backbone.Model({ num: 1 });
-
+      const claess = { a: true };
       const click_handler = () => {
         let num = model.get("num") + 1;
         model.set("num", num);
@@ -44,8 +47,9 @@
 
       render(
         html` <input type="color" @change=${changeColor} />
-          <div style=${styles} @click=${click_handler}>
-            ${watch(model, "num")}
+          <div  style=${styles} class=${claess} @click=${click_handler} >
+            ${watch(model, "num")} 
+            ${["aaa","bbb"].map(item=>html`<h2  >${item}</h2>`)}
           </div>`,
         document.body
       );

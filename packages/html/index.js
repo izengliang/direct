@@ -82,14 +82,6 @@ export class ValueSlot {
         this.directive.remove(); // @todo
         this.directive = null;
         break;
-
-      // case ValueType.WATCH:
-      //   this.prevValue.model.off("change", this.onChange);
-      //   break;
-
-      // case ValueType.MODEL:
-      //   this.prevValue.off("change", this.onChange);
-      //   break;
     }
   }
 
@@ -237,7 +229,7 @@ export class ValueSlot {
             if (view) {
               oldViews.push(view);
             } else {
-              const t = new Template(v.strings);
+              const t = new Template(v);
               view = new View(t);
               view.uid = uid;
               newViews.push(view);
@@ -278,7 +270,7 @@ export class ValueSlot {
             if (directiveResult) {
               uid = directiveResult.args[0];
             }
-            const template = new Template(v.strings);
+            const template = new Template(v);
             const view = new View(template);
 
             view.render(v.values);
@@ -307,6 +299,8 @@ export class ValueSlot {
       this.valueType = valueType;
     }
   }
+
+  remove() {}
 }
 
 class AttributeSlot extends ValueSlot {
@@ -330,17 +324,26 @@ class AttributeSlot extends ValueSlot {
             styleStr += s + ":" + v + ";";
           }
           this.host.setAttribute("style", styleStr);
-        } else if (this.attribute === "class" && typeof value === "object") {
+        } else if (
+          this.attribute === "class" &&
+          (typeof value === "object" || typeof value === "array")
+        ) {
           if (this.prevClassArr) {
             this.host.classList.remove(...this.prevClassArr);
-            this.prevClassArr = [];
+          }
+
+          this.prevClassArr = [];
+          if (typeof value === "object") {
             for (let k in value) {
               if (value[k]) {
                 this.prevClassArr.push(k);
               }
             }
-            this.host.classList.add(...this.prevClassArr);
+          } else {
+            this.prevClassArr = value;
           }
+
+          this.host.classList.add(...this.prevClassArr);
         } else {
           this.host.setAttribute(this.attribute, value);
         }
@@ -381,7 +384,7 @@ class StyleSlot extends ValueSlot {
   prevValue;
 
   setValue(value, internal) {
-    if (internal || !this.setModelValue(bool)) {
+    if (internal || !this.setModelValue(value)) {
       if (internal || value !== this.prevValue) {
         this.host.style[this.attributeName] = value;
       }
@@ -430,9 +433,18 @@ class EventSlot extends ValueSlot {
 
 class DirectiveSlot extends ValueSlot {
   /**
-   * @param {Directive} directive
+   * @param {DirectiveResult} directive
    */
-  setValue(directive) {}
+  setValue({ Type, args }) {
+    if (!this.directive) {
+      this.directive = new Type(this.view);
+    } else if (!(this.directive instanceof Type)) {
+      this.directive.remove();
+      this.directive = new Type(this.view);
+    }
+
+    this.directive.render(...args);
+  }
 }
 
 // dynamic
@@ -448,15 +460,13 @@ export class View {
     this.nodes = [...fragment.children];
   }
 
-  fragment;
-
   /**
    * @type { Node[] } nodes;
    */
   nodes = [];
 
   /**
-   * @type {ViewSlot[]}
+   * @type {ValueSlot[]}
    */
   slots;
 
@@ -468,13 +478,18 @@ export class View {
   render(values) {
     values &&
       values.forEach((value, i) => {
-        this.slots[i]?.setValue(value);
+        const slot = this.slots[i];
+        if (slot) {
+          slot.view = this;
+          slot.setValue(value);
+        }
       });
   }
 
   // TODO
   remove() {
     this.nodes.forEach((n) => n.remove());
+    this.slots.forEach((slot) => slot.remove());
   }
 }
 
@@ -492,6 +507,12 @@ export class View {
  */
 
 export class Directive {
+  constructor(view) {
+    /**
+     * @type {View}
+     */
+    this.view = view;
+  }
   /**
    *
    * @param {ValueSlot} slot
@@ -517,21 +538,29 @@ export const directive = (Type) => {
 export class Template {
   /**
    * @readonly
-   * @type {string[]}
+   * @type {templateResult}
    */
-  strings;
-  constructor(strings) {
-    this.strings = strings;
+  templateResult;
+
+  /**
+   *
+   * @param {TemplateResult} templateResult
+   */
+  constructor(templateResult) {
+    this.templateResult = templateResult;
     this.#mark();
   }
 
+  slots = [];
+
   /**
-   * mark value position info.
+   * mark slot position info.
    */
   #mark() {
-    const strings = this.strings;
-    let template = "";
+    const slots = this.slots;
 
+    const strings = this.templateResult.strings;
+    let template = "";
     for (let i = 0; i < strings.length - 1; i++) {
       const s = strings[i];
       // is event handler
@@ -539,50 +568,67 @@ export class Template {
         const eventName = RegExp.$1;
         const $s = RegExp["$`"];
         template += $s;
-        template += ` data-___marker-${i}='${JSON.stringify({
-          position: i,
-          eventName,
-          type: ValueType.EVENT,
-        })}'`;
+
+        template += ` data-___marker-${i} `;
+
+        const slot = new EventSlot();
+        slot.event = eventName;
+        slot.position = i;
+        slot.isChild = true;
+
+        // slot.host = n;
+        slots[i] = slot;
       } else if (/\s+\.(\w*)=\s*$/.test(s)) {
         const $s = RegExp["$`"];
         template += $s;
+        template += ` data-___marker-${i} `;
+
         const propertyName = RegExp.$1;
-        template += ` data-___marker-${i}='${JSON.stringify({
-          position: i,
-          type: ValueType.PROPERTY,
-          propertyName,
-        })}'`;
-      } else if (/\s*(\w*)\s*=\s*$/.test(s)) {
+
+        const slot = new PropertySlot();
+        slot.property = propertyName;
+        slot.position = i;
+        // slot.host = n;
+        slot.isChild = true;
+        slots[i] = slot;
+      } else if (/\s+(\w*)\s*=\s*$/.test(s)) {
         const attributeName = RegExp.$1;
         const $s = RegExp["$`"];
         template += $s;
+        template += ` data-___marker-${i} `;
 
-        template += ` data-___marker-${i}='${JSON.stringify({
-          position: i,
-          type: ValueType.ATTRIBUTE,
-          attributeName,
-        })}'`;
-      } else if (/\s*style\.([a-zA-Z]\w*)\s*=\s*$/.test(s)) {
+        const slot = new AttributeSlot();
+        slot.attribute = attributeName;
+        slot.position = i;
+        // slot.host = n;
+        slot.isChild = true;
+        slots[i] = slot;
+      } else if (/\s+style\.([a-zA-Z]\w*)\s*=\s*$/.test(s)) {
         const attributeName = RegExp.$1;
 
         const $s = RegExp["$`"];
         template += $s;
+        template += ` data-___marker-${i} `;
 
-        template += ` data-___marker-${i}='${JSON.stringify({
-          position: i,
-          type: ValueType.STYLE,
-          attributeName,
-        })}'`;
+        const slot = new StyleSlot();
+        slot.attributeName = attributeName;
+        slot.position = i;
+        slot.isChild = true;
+
+        // slot.host = n;
+        slots[i] = slot;
       } else if (/\s*class\.([a-zA-Z]\w*)\s*=\s*$/.test(s)) {
         const className = RegExp.$1;
         const $s = RegExp["$`"];
         template += $s;
-        template += ` data-___marker-${i}='${JSON.stringify({
-          position: i,
-          type: ValueType.CLASS,
-          className,
-        })}'`;
+        template += ` data-___marker-${i} `;
+
+        const slot = new ClassSlot();
+        slot.className = className;
+        slot.position = i;
+        slot.isChild = true;
+        // slot.host = n;
+        slots[i] = slot;
       } else {
         template += s;
         const tagIndex = template.lastIndexOf("<");
@@ -590,21 +636,23 @@ export class Template {
         if (
           tagIndex !== -1 &&
           substr.lastIndexOf(">") === -1 &&
-          /^<\s*[a-z][A-Za-z0-9_\-]*\s*/.test(template.slice(substr))
+          /^<\s*[a-z][A-Za-z0-9_\-]*\s*/.test(substr)
         ) {
-          template += ` data-___marker-${i}='${JSON.stringify({
-            position: i,
-            type: ValueType.DIRECTIVE,
-            isChild: true,
-          })}'`;
+          template += ` data-___marker-${i} `;
+
+          const slot = new DirectiveSlot();
+          slot.position = i;
+          slot.isChild = true;
+          slots[i] = slot;
+          // slot.host = n;
         } else {
-          template += `<!--data-___marker-${i}=${JSON.stringify({
-            position: i,
-          })}-->`;
+          template += `<!--data-___marker-${i}-->`;
+          const slot = new ValueSlot();
+          slot.position = i;
+          slots[i] = slot;
         }
       }
     }
-
     template += strings.at(-1);
     if (!this.#templateFragment) {
       const templateElement = document.createElement("template");
@@ -623,81 +671,18 @@ export class Template {
    */
   generate() {
     const templateFragment = this.#templateFragment.cloneNode(true);
-    const slots = [];
+    const slots = _.clone(this.slots);
     /**
      * @type  {NodeList}
      */
     const elements = templateFragment.querySelectorAll("*");
+
+    // bind host.
     elements.forEach((n) => {
       for (let mark in n.dataset) {
-        if (/^___marker\-\d+$/.test(mark)) {
-          const info = JSON.parse(n.dataset[mark]);
-
-          switch (info.type) {
-            case ValueType.ATTRIBUTE:
-              {
-                const slot = new AttributeSlot();
-                slot.attribute = info.attributeName;
-                slot.position = info.position;
-                slot.host = n;
-                slot.isChild = true;
-                slots[info.position] = slot;
-              }
-              break;
-            case ValueType.PROPERTY:
-              {
-                const slot = new PropertySlot();
-                slot.property = info.propertyName;
-                slot.position = info.position;
-                slot.host = n;
-                slot.isChild = true;
-
-                slots[info.position] = slot;
-              }
-              break;
-            case ValueType.EVENT:
-              {
-                const slot = new EventSlot();
-                slot.event = info.eventName;
-                slot.position = info.position;
-                slot.isChild = true;
-
-                slot.host = n;
-                slots[info.position] = slot;
-              }
-              break;
-            case ValueType.CLASS:
-              {
-                const slot = new ClassSlot();
-                slot.className = info.className;
-                slot.position = info.position;
-                slot.isChild = true;
-
-                slot.host = n;
-                slots[info.position] = slot;
-              }
-              break;
-            case ValueType.STYLE:
-              {
-                const slot = new StyleSlot();
-                slot.attributeName = info.attributeName;
-                slot.position = info.position;
-                slot.isChild = true;
-
-                slot.host = n;
-                slots[info.position] = slot;
-              }
-              break;
-            case ValueType.DIRECTIVE:
-              {
-                const slot = new DirectiveSlot();
-                slots[info.position] = slot;
-                slot.isChild = true;
-                slot.host = n;
-              }
-              break;
-          }
-
+        if (/^___marker\-(\d+)$/.test(mark)) {
+          const i = Number(RegExp.$1);
+          this.slots[i].host = n;
           delete n.dataset[mark];
         }
       }
@@ -706,13 +691,11 @@ export class Template {
     const comments = getAllComments(templateFragment);
     comments.forEach((comment) => {
       const commentText = comment.textContent;
-      if (/^data-___marker\-\d+=(.*)/.test(commentText)) {
-        const info = JSON.parse(RegExp.$1);
-        const slot = new ValueSlot();
-        slot.position = info.position;
+      if (/^data-___marker\-(\d+)/.test(commentText)) {
+        const i = Number(RegExp.$1);
+        const slot = slots[i];
         slot.marker = comment;
         slot.host = comment.parentElement;
-        slots[info.position] = slot;
       }
     });
 
@@ -734,14 +717,15 @@ export const render = (templateResult, container, options = {}) => {
   let view = container[options.cid || ""];
   if (view) {
     if (
-      view.template.strings.toString() !== templateResult.strings.toString()
+      view.template.templateResult.strings.toString() !==
+      templateResult.strings.toString()
     ) {
       view.remove();
       view = null;
     }
   }
   if (!view) {
-    const template = new Template(templateResult.strings);
+    const template = new Template(templateResult);
     view = new View(template);
     container[options.cid || ""] = view;
     container.append(...view.nodes);
@@ -752,7 +736,6 @@ export const render = (templateResult, container, options = {}) => {
 };
 
 export class UID extends Directive {
-  constructor(slot) {}
   render(id) {}
 }
 

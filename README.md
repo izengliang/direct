@@ -140,12 +140,6 @@ html`
 
 # Plan - **No implements , please waiting**
 
-### cache directive - template cache directive
-
-```js
-html` <li ${cache}></li> `;
-```
-
 ### re-render mode directive
 
 ```js
