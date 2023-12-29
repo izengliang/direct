@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <script src="../../node_modules/underscore/underscore-min.js"></script>
+    <script src="../../node_modules/backbone/backbone.js"></script>
+  </head>
+  <body>
+    <script type="importmap">
+      {
+        "imports": {
+          "@izengliang/direct-html": "../html/src/index.js"
+        }
+      }
+    </script>
+    <script type="module">
+      import { View, html } from "@izengliang/direct-html";
+      import { watch } from "./index.js";
+
+      const m = new Backbone.Model();
+
+      const v = new View();
+      const change = (e) => {
+        m.set("txt", e.target.value);
+      };
+      v.render(html`<div><input @input=${change} />${watch(m, "txt")}</div>`);
+
+      document.body.appendChild(v.fragment);
+    </script>
+  </body>
+</html>

@@ -4,11 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Document</title>
-    <script src="
-    https://cdn.jsdelivr.net/npm/underscore@1.13.6/underscore-min.min.js
-    "></script>
-
-    <script src="https://cdn.jsdelivr.net/npm/backbone@1.5.0/backbone-min.min.js"></script>
 
     <style>
       article {
@@ -35,51 +30,81 @@
   </head>
   <body>
     <div id="container"></div>
-    <script type="importmap">
-      {
-        "imports": {
-          "underscore": "../../../node_modules/underscore/underscore-min.js",
-          "backbone": "../../../node_modules/backbone/backbone-min.js"
+    <script type="module">
+      import { View, html, directive, Directive } from "../src/index.js";
+      class AddNum extends Directive {
+        start = false;
+        value = 0;
+        render() {
+          if (!this.start) {
+            this.start = true;
+            setInterval(() => {
+              ++this.value;
+              this.slot.rerender();
+            }, 1000);
+          }
+          return this.value + "";
         }
       }
-    </script>
-    <script type="module">
-      // import { render, html } from "@izengliang/direct-html";
-      import { render, html, uid } from "../index.js";
 
-      let title = "click me! change num";
-      let content = "my content";
-      let items = [];
-      let innerhtml = "<h7> is inner html </h7>";
-      let num = 0;
-      const click_handler = () => {
-        ++num;
-        items = [...items, num];
-        run();
+      const addNum = directive(AddNum);
+
+      class ColorBox extends Directive {
+        render(color) {
+          const style = `background-color:${color}; width:50px;height:50px;`;
+          return html`<div style=${style}></div>`;
+        }
+      }
+
+      const colorBox = directive(ColorBox);
+
+      class Move extends Directive {
+        _prev = 0;
+        render(translate) {
+          if (translate !== this._prev) {
+            this.slot.host.style.setProperty(
+              "transform",
+              `translateX(${translate}px)`,
+              "important"
+            );
+            this._prev = translate;
+          }
+          return;
+        }
+      }
+
+      const move = directive(Move);
+
+      const view = new View();
+
+      const childNode = new Text("!!test node!!");
+
+      let fontsize = 1;
+      let titleProperty = "mmmm";
+
+      const c = document.querySelector("#container");
+
+      const click = () => {
+        ++fontsize;
+        render();
       };
 
-      const run = () =>
-        render(
-          html`<article title=${title} @click=${click_handler}>
-            <header>${title} ${num}</header>
-
-            <div>${content}</div>
-            <div .innerHTML=${innerhtml}></div>
-            <div>${num}</div>
-            <div>${html`<h4>h4 span ${num}</h4>`}</div>
-            <div>
-              ${items.map(
-                (item) =>
-                  html`<h3 ${uid(item)} style=${"font-size:" + item + "rem"}>
-                    Item - ${item}
-                  </h3>`
-              )}
-            </div>
-          </article>`,
-          container
+      const render = () => {
+        view.render(
+          html`<h1
+            ${move(fontsize * 10)}
+            .title=${titleProperty}
+            @click=${click}
+            style=${"font-size:" + fontsize + "rem"}
+          >
+            num ${addNum()}
+          </h1> `
         );
+      };
 
-      run();
+      render();
+
+      c.append(...view.nodes);
     </script>
   </body>
 </html>

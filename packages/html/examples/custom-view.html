@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+
+    <style>
+      article {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue",
+          sans-serif;
+        font-size: 2rem;
+        background-color: aliceblue;
+        & header {
+          background-color: cornflowerblue;
+          color: aliceblue;
+          padding: 5px;
+        }
+
+        & div {
+          padding: 5px;
+        }
+
+        & div:nth-child(3) {
+          font-size: 3rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="container"></div>
+    <script type="module">
+      import { View, html, directive, Directive, ref } from "../src/index.js";
+      class MyView extends View {
+        constructor() {
+          super();
+          this.render();
+        }
+
+        // titleInputRef = {};
+        // contentInputRef = {};
+
+        titleHandler(e) {
+          this.title = e.target.value;
+        }
+
+        contentHandler(e) {
+          this.content = e.target.value;
+        }
+
+        #title = "";
+        #content = "";
+
+        set title(v) {
+          this.#title = v;
+          this.render();
+        }
+
+        set content(v) {
+          this.#content = v;
+          this.render();
+        }
+
+        render() {
+          super.render(html`
+              <article>
+                <header>${this.#title}</header>
+                <div>
+                    ${this.#content}
+                </div>
+                <div>
+                  <label>Title</label>
+                  <input @input=${this.titleHandler.bind(this)} />
+                 </div>
+
+                <div>
+                  <label>Content:</label>
+                  <input @input=${this.contentHandler.bind(this)} />
+                 </div>
+              </artcile>
+      `);
+        }
+      }
+
+      const view = new MyView();
+      document.body.appendChild(view.fragment);
+    </script>
+  </body>
+</html>
