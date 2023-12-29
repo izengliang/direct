@@ -25,7 +25,12 @@
       const change = (e) => {
         m.set("txt", e.target.value);
       };
-      v.render(html`<div><input @input=${change} />${watch(m, "txt")}</div>`);
+      v.render(html`<div>
+        <input @input=${change} />
+        Only change me ! ${watch(m, "txt")}
+
+        <p>No change me.</p>
+        </div>`);
 
       document.body.appendChild(v.fragment);
     </script>

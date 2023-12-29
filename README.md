@@ -4,7 +4,7 @@ Direct is a simple library for building fast, lightweight web components , can d
 
 # Playground
 
-https://codesandbox.io/s/priceless-wave-d48gtj?file=/index.html
+https://codepen.io/liangzeng/pen/BabNOQx
 
 # Install
 
@@ -134,7 +134,7 @@ html`<div %${nodeRef} ></div>`
 ```
 
 ```js
-// Supports direct nesting, achieving infinite possibilities.
+// Supports directive nesting, achieving infinite possibilities.
 
 html`<div ${color(watch(obj, "color"))}></div>`;
 
