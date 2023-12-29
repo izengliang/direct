@@ -8,13 +8,13 @@ https://codepen.io/liangzeng/pen/BabNOQx
 
 # Install
 
-    npm install @izengliang/direct-html
+    npm install @izengliang/direc-html
 
 CDN
 
 ```html
 <script src="
-https://cdn.jsdelivr.net/npm/@izengliang/direct-html/index.min.js
+https://cdn.jsdelivr.net/npm/@izengliang/direct-html@0.0/src/index.min.js
 "></script>
 ```
 

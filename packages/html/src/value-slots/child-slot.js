@@ -31,7 +31,8 @@ class ChildSlot extends ValueSlot {
 
   render(value) {
     if (this._prevValue != value) {
-      if (typeof value === "string") {
+      if (typeof value === "string" || typeof value === "number") {
+        value = value+"";
         if (this._items[0] instanceof Text) {
           this._items[0].textContent = value;
           this._destory(1);
