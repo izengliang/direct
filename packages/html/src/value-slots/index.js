@@ -52,7 +52,7 @@ const directiveSlotParser = (str, position, isChild) => {
  * @type {SlotParser}
  */
 const childSlotParser = (str, position, isChild) => {
-  if (isChild && !/\=\s*$/.test(str)) {
+  if (isChild) {
     return [str, new ChildSlot(position)];
   }
 };
