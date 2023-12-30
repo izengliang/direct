@@ -47,6 +47,7 @@ class View {
     }
     const strings = templateResult.strings.join("-");
     if (this.#strings !== strings) {
+
       if (this.#strings !== undefined) {
         this.#destory();
       }

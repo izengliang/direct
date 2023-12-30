@@ -1,16 +1,16 @@
-# Direct
+# direct-html
 
-Direct is a simple library for building fast, lightweight web components , can directly manipulate the dom structure.
+Efficient, efficient, and scalable HTML templates in JavaScript.
 
-# Playground
+### Playground
 
 https://codepen.io/liangzeng/pen/BabNOQx
 
-# Install
+### Install
 
     npm install @izengliang/direc-html
 
-CDN
+### CDN
 
 ```html
 <script src="
@@ -18,7 +18,7 @@ https://cdn.jsdelivr.net/npm/@izengliang/direct-html@0.0/src/index.min.js
 "></script>
 ```
 
-# Use
+### Use
 
 ```js
 import { html, View } from "@izengliang/direct-html";
@@ -102,64 +102,6 @@ html`
 `;
 ```
 
-```js
-// bind class and style
+# direct-element
 
-const isBox = true;
-const myColor = "green";
-
-html`<article class.isBox=${isBox} style.backgroundColor=${myColor}>
-  direct is directly operate DOM !
-</article>`;
-```
-
-```js
-
-// Support for extended syntax
-// Custom Value Slot Parser
-
-import { use } from "@izengliang/direct-html";
-
-const slotParserPlugin = {
-  slotParser: ... // Custom '%' Parser
-}
-use(slotParserPlugin);
-
-const nodeRef = {};
-
-html`<div %${nodeRef} ></div>`
-
-// nodeRef.current is div's dom object.
-
-```
-
-```js
-// Supports directive nesting, achieving infinite possibilities.
-
-html`<div ${color(watch(obj, "color"))}></div>`;
-
-// ColorDirective get the value of WatchDirective.
-// When color changes, the view is automatically refreshed.
-// Similar to signal .
-```
-
-# directives
-
-### @izengliang/direct-model-watch
-
-listen Backbone.Model to change slot value , similar signal.
-
-```js
-import { watch } from "@izengliang/direct-model-watch";
-
-const m = new Backbone.Model();
-
-const v = new View();
-
-const change = (e) => {
-  m.set("txt", e.target.value);
-};
-
-v.render(html`<div><input @input=${change} />${watch(m, "txt")}</div>`);
-
-```
+direct-element is a simple library used to build fast, lightweight web components that can directly manipulate dom structures.

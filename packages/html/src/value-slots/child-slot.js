@@ -90,6 +90,17 @@ class ChildSlot extends ValueSlot {
             }
           }
         }
+
+        const newItems = this._items.slice(0,value.length);
+        const delItems = this._items.slice(value.length);
+        this._items = newItems;
+        delItems.forEach(item=>{
+          if (item instanceof View) {
+            item.destory();
+          } else if (item instanceof Node) {
+            item.remove();
+          }
+        })
       }
 
       this._prevValue = value;
