@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <script src="../../../node_modules/underscore/underscore-min.js"></script>
+    <script src="../../../node_modules/backbone/backbone-min.js"></script>
+  </head>
+  <body>
+    <script type="importmap">
+      {
+        "imports": {
+          "@izengliang/direct-html": "../../html/src/index.js",
+          "@izengliang/direct-element": "../src/index.js"
+        }
+      }
+    </script>
+
+    <test-comp content="my content !!!">
+      <ul>
+        <li>aaa</li>
+        <li>bbb</li>
+        <li>ccc</li>
+        <li>ddd</li>
+      </ul>
+    </test-comp>
+
+    <script type="module">
+      import { DirectElement } from "@izengliang/direct-element";
+      import { html } from "@izengliang/direct-html";
+
+      class TestComp extends DirectElement {
+        
+        render() {
+          return html` <div>
+            <h1>Test comp</h1>
+            <article>${this.model.get("content")}</article>
+            <div><slot></slot></div>
+          </div>`;
+        }
+        model = new Backbone.Model();
+
+        constructor() {
+          super();
+          this.model.on("change", () => this.requestRender());
+        }
+        static get observedAttributes() {
+          return ["content"];
+        }
+        attributeChangedCallback(name, oldValue, newValue) {
+          this.model.set(name, newValue);
+        }
+      }
+
+      customElements.define("test-comp", TestComp);
+    </script>
+  </body>
+</html>

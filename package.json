@@ -11,7 +11,8 @@
   "license": "Apache License",
   "workspaces": [
     "packages/html",
-    "packages/model-watch"
+    "packages/model-watch",
+    "packages/element"
   ],
   "devDependencies": {
     "@web/dev-server": "^0.4.1",

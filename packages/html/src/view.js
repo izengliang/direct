@@ -30,7 +30,7 @@ class View {
       if (slot) {
         slot.view = this;
         slot.render(
-          value.isDirectiveResult ? runDirective(slot, value) : value
+          (value && value.isDirectiveResult) ? runDirective(slot, value) : value
         );
       }
     });
