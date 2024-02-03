@@ -6,8 +6,6 @@ class PropertySlot extends ValueSlot {
    */
   property;
 
-  _prevValue;
-
   isChild = false;
 
   /**
@@ -21,9 +19,8 @@ class PropertySlot extends ValueSlot {
   }
 
   render(value) {
-    if (value !== this._prevValue) {
+    if (value !== this.host[this.property]) {
       this.host[this.property] = value;
-      this._prevValue = value;
     }
   }
 }

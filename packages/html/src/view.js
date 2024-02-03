@@ -2,6 +2,12 @@ import { Template } from "./template.js";
 import { runDirective } from "./directive.js";
 
 class View {
+  static create(members) {
+    const view = new View();
+    Object.assign(view, members);
+    return view;
+  }
+
   /**
    * @type { Node[] } nodes;
    */
@@ -24,18 +30,6 @@ class View {
 
   #strings;
 
-  #render(values) {
-    values.forEach((value, i) => {
-      const slot = this.#slots[i];
-      if (slot) {
-        slot.view = this;
-        slot.render(
-          (value && value.isDirectiveResult) ? runDirective(slot, value) : value
-        );
-      }
-    });
-  }
-
   /**
    *
    * @param {import("./types").TemplateResult} templateResult
@@ -47,7 +41,6 @@ class View {
     }
     const strings = templateResult.strings.join("-");
     if (this.#strings !== strings) {
-
       if (this.#strings !== undefined) {
         this.#destory();
       }
@@ -59,8 +52,15 @@ class View {
       this.#fragment = fragment;
       this.#nodes = [...fragment.childNodes];
     }
-
-    this.#render(templateResult.values);
+    templateResult.values.forEach((value, i) => {
+      const slot = this.#slots[i];
+      if (slot) {
+        slot.view = this;
+        slot.render(
+          value && value.isDirectiveResult ? runDirective(slot, value) : value
+        );
+      }
+    });
   }
 
   get nodes() {
@@ -81,6 +81,10 @@ class View {
   destory() {
     this.#isDestory = true;
     this.#destory();
+  }
+
+  hide() {
+    this.fragment;
   }
 
   #destory() {

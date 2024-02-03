@@ -22,7 +22,7 @@ class ChildSlot extends ValueSlot {
     for (let i = startIndex, len = this._items.length; i < len; i++) {
       const item = this._items[i];
       if (item instanceof View) {
-        item.destory();
+        item.__$internal ? item.destory() : item.hide();
       } else {
         item.remove();
       }
@@ -30,9 +30,10 @@ class ChildSlot extends ValueSlot {
   }
 
   render(value) {
+    // console.log("value" , value)
     if (this._prevValue != value) {
       if (typeof value === "string" || typeof value === "number") {
-        value = value+"";
+        value = value + "";
         if (this._items[0] instanceof Text) {
           this._items[0].textContent = value;
           this._destory(1);
@@ -40,6 +41,11 @@ class ChildSlot extends ValueSlot {
           this._destory();
           this._items = [new Text(value)];
         }
+      } else if (value instanceof View) {
+        if (this._items[0] instanceof View) {
+          this._destory();
+        }
+        this._items = [value];
       } else if (value instanceof Node) {
         this._destory();
         this._items = [value];
@@ -50,6 +56,7 @@ class ChildSlot extends ValueSlot {
         } else {
           this._destory();
           const view = new View();
+          view.__$internal = true;
           view.render(value);
           this._items = [view];
         }
@@ -64,14 +71,28 @@ class ChildSlot extends ValueSlot {
             } else if (o) {
               o.remove();
               const view = new View();
+              view.__$internal = true;
+
               view.render(n);
               this._items[i] = view;
             } else {
               const view = new View();
+              view.__$internal = true;
+
               view.render(n);
               this._items[i] = view;
             }
           } else if (n instanceof Node) {
+            this._items[i] = n;
+          } else if (n instanceof View) {
+            if (o instanceof View) {
+              if (n !== o) {
+                o.destory();
+              }
+            } else if (o) {
+              o.remove();
+            }
+            n.__$internal = true;
             this._items[i] = n;
           } else {
             n = n ? n.toString() : "";
@@ -91,16 +112,16 @@ class ChildSlot extends ValueSlot {
           }
         }
 
-        const newItems = this._items.slice(0,value.length);
+        const newItems = this._items.slice(0, value.length);
         const delItems = this._items.slice(value.length);
         this._items = newItems;
-        delItems.forEach(item=>{
+        delItems.forEach((item) => {
           if (item instanceof View) {
-            item.destory();
+            item.__$internal ? item.destory() : item.hide();
           } else if (item instanceof Node) {
             item.remove();
           }
-        })
+        });
       }
 
       this._prevValue = value;

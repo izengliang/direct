@@ -8,6 +8,17 @@ class DirectElement extends HTMLElement {
     super();
     this.#view = new View();
     this.#root = this.createRoot();
+    const css = this.constructor.css || "";
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync(css);
+    this.adoptedStyleSheets.push(sheet);
+  }
+
+  get adoptedStyleSheets() {
+    if (this.#root instanceof ShadowRoot) {
+      return this.#root.adoptedStyleSheets;
+    }
+    return document.adoptedStyleSheets;
   }
 
   /**
@@ -18,10 +29,13 @@ class DirectElement extends HTMLElement {
     return this.attachShadow({ mode: "open" });
   }
 
+  getRoot() {
+    return this.#root;
+  }
+
   connectedCallback() {
     this.requestRender();
   }
-
 
   #strings = "";
 
@@ -37,6 +51,7 @@ class DirectElement extends HTMLElement {
       this.#root.append(...this.#view.nodes);
       this.#strings = strings;
     }
+
   }
 
   render() {}
